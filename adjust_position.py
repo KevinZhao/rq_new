@@ -422,7 +422,7 @@ class Buy_stocks_low(Adjust_position):
             return
 
         #30分钟线进行交易
-        if (context.timedelt % 30 >= 5) or (context.timedelt % 30 == 0): #and (context.timedelt % 60 <= 5):
+        if (context.timedelt % 15 >= 5) or (context.timedelt % 15 == 0): #and (context.timedelt % 60 <= 5):
             return
 
         #股票打分    
@@ -439,6 +439,7 @@ class Buy_stocks_low(Adjust_position):
 
             macd_df_60 = context.bar_60[stock]
             macd_df_30 = context.bar_30[stock]
+            macd_df_15 = context.bar_15[stock]
 
             #print(macd_df)
 
@@ -451,6 +452,13 @@ class Buy_stocks_low(Adjust_position):
                     self.open_position_by_percent(stock, 1/self.buy_count)
 
             if macd_df_30.iloc[-1]['bottom_buy'] == 1:
+
+                createdic(context, data, stock)
+                    
+                if context.portfolio.positions[stock].value_percent * 1.1 < 0.5/self.buy_count:
+                    self.open_position_by_percent(stock, 0.5/self.buy_count)
+
+            if macd_df_15.iloc[-1]['bottom_buy'] == 1:
 
                 createdic(context, data, stock)
                     
