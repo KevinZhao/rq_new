@@ -142,11 +142,13 @@ def calculate_macd(df):
     df['dea'] = pd.DataFrame(dea, index = df.index, columns = ['dea'])
     df['macd'] = pd.DataFrame(macd*2, index = df.index, columns = ['macd'])
 
-    print(df)
+    #print(df)
 
     return df
 
 def macd_alert_calculation(macd_df, stock):
+
+    #print('get called')
     
     diff, dea, macd = talib.MACD(macd_df['close'].values, 12, 26, 9)
                    
@@ -154,6 +156,8 @@ def macd_alert_calculation(macd_df, stock):
     macd_df['diff'] = pd.DataFrame(diff, index = macd_df.index, columns = ['diff'])
     macd_df['dea'] = pd.DataFrame(dea, index = macd_df.index, columns = ['dea'])
     macd_df['macd'] = pd.DataFrame(macd*2, index = macd_df.index, columns = ['macd'])
+
+    #print('called2')
     
     #2. 计算波峰跨度
     n1 = 0;
@@ -200,6 +204,8 @@ def macd_alert_calculation(macd_df, stock):
                     n3 = i;
                     break; 
 
+
+
     #本周期和前一个周期的峰值计算
     current_price = macd_df.iloc[-1]['close']
     current_diff = macd_df.iloc[-1]['diff']
@@ -219,10 +225,9 @@ def macd_alert_calculation(macd_df, stock):
         if (current_price < last_min_price) and (current_diff > last_min_diff):
             
             #if signals[stock].bottom_alert != True:
-            #print(stock, "30 分钟 底部钝化形成", current_diff, current_price)
-
-            macd_df['bottom_alert'] = pd.DataFrame(None, index = macd_df.index, columns = ['bottom_alert'])
+            print(stock, "底部钝化形成", current_diff, current_price)
             macd_df['bottom_alert'][df_count - 1] = 1
+    #print('called3')
             
     # 钝化消失判断
     #if signals[stock].bottom_alert:
@@ -232,17 +237,20 @@ def macd_alert_calculation(macd_df, stock):
         
     # 钝化状态下，diff拐点
 
-    print('called')
-    print(macd_df)
+    #print('called')
+    #print(macd_df)
     for i in range(1, df_count):
-
         if macd_df.iloc[-i]['bottom_alert'] == 1:
-            print('called1')
+            
             if (current_diff > macd_df.iloc[-2]['diff']): #and (n1*2 > n3) :
+                macd_df['bottom_buy'][df_count - 1] = 1
+                #print(macd_df)
                 print(stock, " 分钟 底部结构形成", current_diff, current_price)
-                print(macd_df)
+                #print(macd_df)
 
-    print('called2')
+    return macd_df
+
+    #print('called2')
             #signals[stock].bottom_buy = True;
             #signals[stock].bottom_buy_diff = current_diff;
             #signals[stock].bottom_alert = False;

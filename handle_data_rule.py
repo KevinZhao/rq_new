@@ -21,39 +21,46 @@ class Handle_data_df(Handle_data_rule):
         #获取历史30分钟数据
         today = context.now.date();
 
+        context.bar_30 = {}
+        context.bar_60 = {}
+
+        #补全数据
         for stock in context.stock_list:
 
-            if stock not in context.bar_30.keys():
-
-                #初始化30分钟线数据
-                context.bar_30[stock] = get_price(stock, start_date = today - datetime.timedelta(days = 70), end_date = today - datetime.timedelta(days = 1), frequency = '30m').tail(150)
-                context.bar_30[stock] = macd_alert_calculation(context.bar_30[stock], stock); 
-
-                context.bar_60[stock] = get_price(stock, start_date = today - datetime.timedelta(days = 150), end_date = today - datetime.timedelta(days = 1), frequency = '60m').tail(150)
-                context.bar_60[stock] = macd_alert_calculation(context.bar_60[stock], stock)
-                #print('called2')
+            #初始化30分钟线数据
+            context.bar_30[stock] = get_price(stock, start_date = today - datetime.timedelta(days = 70), end_date = today - datetime.timedelta(days = 1), frequency = '30m').tail(150)
+            context.bar_60[stock] = get_price(stock, start_date = today - datetime.timedelta(days = 150), end_date = today - datetime.timedelta(days = 1), frequency = '60m').tail(150)
+            #context.bar_60[stock] = macd_alert_calculation(context.bar_60[stock], stock)
+        
 
         for stock in context.portfolio.positions.keys():
 
             if stock not in context.stock_list:
                 #初始化30分钟线数据
                 context.bar_30[stock] = get_price(stock, start_date = today - datetime.timedelta(days = 70), end_date = today - datetime.timedelta(days = 1), frequency = '30m').tail(150)
-                
                 context.bar_60[stock] = get_price(stock, start_date = today - datetime.timedelta(days = 150), end_date = today - datetime.timedelta(days = 1), frequency = '60m').tail(150)
   
 
-        #指数
-        context.index_df = get_price('399678.XSHE', start_date = today - datetime.timedelta(days = 200), end_date = today - datetime.timedelta(days = 1), frequency = '1d').tail(150)
-        '''
-        #context.index_df_15 = get_price('399678.XSHE', start_date = today - datetime.timedelta(days = 40), end_date = today - datetime.timedelta(days = 1), frequency = '15m').tail(150)
-        context.index_df_30 = get_price('399678.XSHE', start_date = today - datetime.timedelta(days = 70), end_date = today - datetime.timedelta(days = 1), frequency = '30m').tail(150)
-        context.index_df_60 = get_price('399678.XSHE', start_date = today - datetime.timedelta(days = 100), end_date = today - datetime.timedelta(days = 1), frequency = '60m').tail(150)
-        
-        #context.index_df_15 = get_price('399678.XSHE', 150, '15m', 'close')
-        context.index_df_15 = get_price('000001.XSHG', start_date = '2017-01-01', end_date = today, frequency='30m', fields=None, adjust_type='pre', skip_suspended=False)
+        #计算数据
+        for stock in context.bar_30.keys():
+            #print(stock)
+            context.bar_30[stock]['bottom_alert'] = pd.DataFrame(None, index = context.bar_30[stock].index, columns = ['bottom_alert'])
+            context.bar_30[stock]['bottom_buy'] = pd.DataFrame(None, index = context.bar_30[stock].index, columns = ['bottom_buy'])
+            #print('called1')
+            context.bar_30[stock] = macd_alert_calculation(context.bar_30[stock], stock); 
+        #print('called2')
 
-        print(context.index_df_60, context.index_df_30, context.index_df_15)
-        '''
+        for stock in context.bar_60.keys():
+
+            context.bar_60[stock]['bottom_alert'] = pd.DataFrame(None, index = context.bar_60[stock].index, columns = ['bottom_alert'])
+            context.bar_60[stock]['bottom_buy'] = pd.DataFrame(None, index = context.bar_60[stock].index, columns = ['bottom_buy'])
+            context.bar_60[stock] = macd_alert_calculation(context.bar_60[stock], stock); 
+
+
+
+        #指数
+        #context.index_df = get_price('399678.XSHE', start_date = today - datetime.timedelta(days = 200), end_date = today - datetime.timedelta(days = 1), frequency = '1d').tail(150)
+        #print('end')
 
         return None
 
@@ -77,9 +84,9 @@ class Handle_data_df(Handle_data_rule):
                 "volume":"",
                 "close":history_bars(stock, 1, '30m', 'close')[0],
                 "total_turnover":""}, index = ["0"])
-            
+            #print(context.bar_30)
             context.bar_30[stock] = context.bar_30[stock].append(temp_data, ignore_index = True)
-            context.bar_30[stock] = calculate_macd(context.bar_30[stock])
+            context.bar_30[stock] = macd_alert_calculation(context.bar_30[stock], stock)
 
         if context.timedelt % 60 == 0:
 
@@ -92,6 +99,7 @@ class Handle_data_df(Handle_data_rule):
                 "total_turnover":""}, index = ["0"])
 
             context.bar_60[stock] = context.bar_60[stock].append(temp_data, ignore_index = True)
+            context.bar_60[stock] = macd_alert_calculation(context.bar_60[stock], stock)
 
 
     def __str__(self):

@@ -401,6 +401,67 @@ class Buy_stocks(Adjust_position):
         pass
     def __str__(self):
         return '股票调仓买入规则：现金平分式买入股票达目标股票数'
+'''---------------买入股票规则--------------'''  
+class Buy_stocks_low(Adjust_position):
+    __name__='Buy_stocks_low'
+    def __init__(self,params):
+        self.buy_count = params.get('buy_count', 4)
+    def update_params(self,context,params):
+        self.buy_count = params.get('buy_count',self.buy_count)
+    def adjust(self,context,data,buy_stocks):
+        # 买入股票
+        # 始终保持持仓数目为g.buy_stock_count
+        # 根据股票数量分仓
+        # 此处只根据可用金额平均分配购买，不能保证每个仓位平均分配
+
+        #开盘和尾盘不进行交易
+
+
+
+        if context.timedelt < 30 or context.timedelt > 237:
+            return
+
+        #30分钟线进行交易
+        if (context.timedelt % 30 >= 5) or (context.timedelt % 30 == 0): #and (context.timedelt % 60 <= 5):
+            return
+
+        #股票打分    
+        #stock_score(context)
+
+        for stock in buy_stocks:
+
+            if stock in context.black_list:
+                return
+
+            #避免小额下单
+            if context.portfolio.cash < 20000:
+                return
+
+            macd_df_60 = context.bar_60[stock]
+            macd_df_30 = context.bar_30[stock]
+
+            #print(macd_df)
+
+            #构成买入条件
+            if macd_df_60.iloc[-1]['bottom_buy'] == 1:
+
+                createdic(context, data, stock)
+                    
+                if context.portfolio.positions[stock].value_percent * 1.1 < 1/self.buy_count:
+                    self.open_position_by_percent(stock, 1/self.buy_count)
+
+            if macd_df_30.iloc[-1]['bottom_buy'] == 1:
+
+                createdic(context, data, stock)
+                    
+                if context.portfolio.positions[stock].value_percent * 1.1 < 0.5/self.buy_count:
+                    self.open_position_by_percent(stock, 0.5/self.buy_count)
+            #else:
+                #self.open_position_by_percent(stock, 1/buy_count)
+
+        pass
+    def __str__(self):
+        return '股票调仓买入规则：现金平分式买入股票达目标股票数'
 
 class Buy_stocks2(Adjust_position):
     __name__='Buy_stocks2'
