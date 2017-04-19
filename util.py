@@ -315,11 +315,15 @@ class Signal:
 
 def calculate_macd_index(df):
 
-    diff, dea, macd = talib.MACD(df, 12, 26, 9)
+    #print(df)
+
+    diff, dea, macd = talib.MACD(df['close'].values, 12, 26, 9)
 
     df['diff'] = pd.DataFrame(diff, index = df.index, columns = ['diff'])
     df['dea'] = pd.DataFrame(dea, index = df.index, columns = ['dea'])
     df['macd'] = pd.DataFrame(macd*2, index = df.index, columns = ['macd'])
+
+    #print(df)
 
     return df
 
@@ -361,7 +365,7 @@ def stock_score(context):
         context.score_df[stock] = score_df
 
     result_df = result_df.sort(columns='score', ascending=True)
-    #result_df = result_df.tail(4)
+
     print(result_df)
 
     context.stock_list = list(result_df.stock)

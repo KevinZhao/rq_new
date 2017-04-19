@@ -60,10 +60,8 @@ class Handle_data_df(Handle_data_rule):
             context.bar_60[stock]['bottom_buy'] = pd.DataFrame(None, index = context.bar_60[stock].index, columns = ['bottom_buy'])
             context.bar_60[stock] = macd_alert_calculation(context.bar_60[stock], stock); 
 
-
-
-        #指数
-        #context.index_df = get_price('399678.XSHE', start_date = today - datetime.timedelta(days = 200), end_date = today - datetime.timedelta(days = 1), frequency = '1d').tail(150)
+        context.index_df = get_price('399678.XSHE', start_date = today - datetime.timedelta(days = 300), end_date = today - datetime.timedelta(days = 1), frequency = '1d').tail(150)
+        context.index_df = calculate_macd_index(context.index_df)
         #print('end')
 
         return None

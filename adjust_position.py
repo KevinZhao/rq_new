@@ -418,15 +418,12 @@ class Buy_stocks_low(Adjust_position):
 
 
 
-        if context.timedelt < 30 or context.timedelt > 237:
+        if context.timedelt < 15 or context.timedelt > 237:
             return
 
         #30分钟线进行交易
         if (context.timedelt % 15 >= 5) or (context.timedelt % 15 == 0): #and (context.timedelt % 60 <= 5):
             return
-
-        #股票打分    
-        #stock_score(context)
 
         for stock in buy_stocks:
 
@@ -441,29 +438,33 @@ class Buy_stocks_low(Adjust_position):
             macd_df_30 = context.bar_30[stock]
             macd_df_15 = context.bar_15[stock]
 
-            #print(macd_df)
+            #print(context.position)
+            #print(context.portfolio.market_value/context.portfolio.portfolio_value)
 
+            if (context.portfolio.market_value / context.portfolio.portfolio_value) > context.position:
+                return
+                
             #构成买入条件
             if macd_df_60.iloc[-1]['bottom_buy'] == 1:
 
                 createdic(context, data, stock)
                     
-                if context.portfolio.positions[stock].value_percent * 1.1 < 1/self.buy_count:
-                    self.open_position_by_percent(stock, 1/self.buy_count)
+                if context.portfolio.positions[stock].value_percent * 1.1 < context.position/self.buy_count:
+                    self.open_position_by_percent(stock, context.position/self.buy_count)
 
             if macd_df_30.iloc[-1]['bottom_buy'] == 1:
 
                 createdic(context, data, stock)
                     
-                if context.portfolio.positions[stock].value_percent * 1.1 < 0.5/self.buy_count:
-                    self.open_position_by_percent(stock, 0.5/self.buy_count)
+                if context.portfolio.positions[stock].value_percent * 1.1 < (context.position/self.buy_count)*0.75:
+                    self.open_position_by_percent(stock, (context.position/self.buy_count)*0.5 )
 
-            if macd_df_15.iloc[-1]['bottom_buy'] == 1:
+            if macd_df_15.iloc[-1]['bottom_buy'] == 1 and context.index_df.iloc[-1]['macd'] > 0:
 
                 createdic(context, data, stock)
                     
-                if context.portfolio.positions[stock].value_percent * 1.1 < 0.5/self.buy_count:
-                    self.open_position_by_percent(stock, 0.5/self.buy_count)
+                if context.portfolio.positions[stock].value_percent * 1.1 < (context.position/self.buy_count)*0.5:
+                    self.open_position_by_percent(stock, (context.position/self.buy_count)*0.25 )
             #else:
                 #self.open_position_by_percent(stock, 1/buy_count)
 

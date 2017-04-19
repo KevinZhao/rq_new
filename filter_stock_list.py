@@ -269,10 +269,12 @@ class Filter_rank(Filter_stock_list):
 
     def before_trading_start(self, context):
 
+        stock_score(context)
+
         if len(context.stock_list) > self.rank_stock_count:
             context.stock_list = context.stock_list[:self.rank_stock_count]
 
-        stock_score(context)
+        print('Filter_buy_count count = ', len(context.stock_list))
 
         return None
 
@@ -312,17 +314,28 @@ class Filter_buy_count(Filter_stock_list):
     __name__='Filter_buy_count'
     def __init__(self,params):
         self.buy_count = params.get('buy_count',3)
-    def before_trading_start(self, context):
-        if len(context.stock_list) > self.buy_count:
-            return context.stock_list[:self.buy_count]
-        else:
-            return context.stock_list
+
     def update_params(self,context,params):
-        self.buy_count = params.get('buy_count',self.buy_count)
+        self.buy_count = params.get('buy_count', self.buy_count)
+
+    def before_trading_start(self, context):
+
+        if len(context.stock_list) > self.buy_count:
+
+            context.stock_list = context.stock_list[:self.buy_count]
+
+        print('Filter_buy_count count = ', len(context.stock_list))
+
+        return context.stock_list
+
     def filter(self,context,data,stock_list):
-        if len(stock_list) > self.buy_count:
-            return stock_list[:self.buy_count]
-        else:
-            return stock_list
+
+        if len(context.stock_list) > self.buy_count:
+
+            context.stock_list = context.stock_list[:self.buy_count]
+
+        print('Filter_buy_count count = ', len(context.stock_list))
+
+        return context.stock_list
     def __str__(self):
         return '获取最终待购买股票数:[ %d ]'%(self.buy_count)
