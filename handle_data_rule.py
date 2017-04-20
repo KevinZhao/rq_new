@@ -21,6 +21,7 @@ class Handle_data_df(Handle_data_rule):
         #获取历史30分钟数据
         today = context.now.date();
 
+        context.bar_5 = {}
         context.bar_15 = {}
         context.bar_30 = {}
         context.bar_60 = {}
@@ -32,6 +33,8 @@ class Handle_data_df(Handle_data_rule):
             context.bar_30[stock] = get_price(stock, start_date = today - datetime.timedelta(days = 70), end_date = today - datetime.timedelta(days = 1), frequency = '30m').tail(150)
             context.bar_60[stock] = get_price(stock, start_date = today - datetime.timedelta(days = 150), end_date = today - datetime.timedelta(days = 1), frequency = '60m').tail(150)
             context.bar_15[stock] = get_price(stock, start_date = today - datetime.timedelta(days = 40), end_date = today - datetime.timedelta(days = 1), frequency = '15m').tail(150)
+            context.bar_5[stock] = get_price(stock, start_date = today - datetime.timedelta(days = 20), end_date = today - datetime.timedelta(days = 1), frequency = '5m').tail(150)
+
 
         for stock in context.portfolio.positions.keys():
 
@@ -40,8 +43,15 @@ class Handle_data_df(Handle_data_rule):
                 context.bar_30[stock] = get_price(stock, start_date = today - datetime.timedelta(days = 70), end_date = today - datetime.timedelta(days = 1), frequency = '30m').tail(150)
                 context.bar_60[stock] = get_price(stock, start_date = today - datetime.timedelta(days = 150), end_date = today - datetime.timedelta(days = 1), frequency = '60m').tail(150)
                 context.bar_15[stock] = get_price(stock, start_date = today - datetime.timedelta(days = 40), end_date = today - datetime.timedelta(days = 1), frequency = '15m').tail(150)
+                context.bar_5[stock] = get_price(stock, start_date = today - datetime.timedelta(days = 40), end_date = today - datetime.timedelta(days = 1), frequency = '5m').tail(150)
 
         #计算数据
+        for stock in context.bar_5.keys():
+            
+            context.bar_5[stock]['bottom_alert'] = pd.DataFrame(None, index = context.bar_5[stock].index, columns = ['bottom_alert'])
+            context.bar_5[stock]['bottom_buy'] = pd.DataFrame(None, index = context.bar_5[stock].index, columns = ['bottom_buy'])
+            context.bar_5[stock] = macd_alert_calculation(context.bar_5[stock], stock); 
+
         for stock in context.bar_15.keys():
             
             context.bar_15[stock]['bottom_alert'] = pd.DataFrame(None, index = context.bar_15[stock].index, columns = ['bottom_alert'])
@@ -76,6 +86,19 @@ class Handle_data_df(Handle_data_rule):
                 self.handle_minute_data(context,data,stock)
 
     def handle_minute_data(self, context, data, stock):
+
+        if context.timedelt % 5 == 0:
+            
+            temp_data = pd.DataFrame(
+                {"low":history_bars(stock, 1, '5m', 'low')[0],
+                "open":"",
+                "high":history_bars(stock, 1, '5m', 'high')[0],
+                "volume":"",
+                "close":history_bars(stock, 1, '5m', 'close')[0],
+                "total_turnover":""}, index = ["0"])
+            
+            context.bar_5[stock] = context.bar_5[stock].append(temp_data, ignore_index = True)
+            context.bar_5[stock] = macd_alert_calculation(context.bar_5[stock], stock)
 
         if context.timedelt % 15 == 0:
             
