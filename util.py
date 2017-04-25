@@ -241,7 +241,7 @@ def macd_alert_calculation(macd_df):
             # diff向上拐点
             if (current_diff > macd_df.iloc[-2]['diff']): 
                 macd_df['bottom_buy'][df_count - 1] = 1
-                print(macd_df)
+                #print(macd_df)
                 break
 
     return macd_df

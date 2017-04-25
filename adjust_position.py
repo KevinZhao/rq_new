@@ -7,157 +7,6 @@ from util import *
 
 '''==============================个股止盈止损规则=============================='''
 
-'''-----------------------个股止损 by pct_change------------------------------'''
-class Stop_loss_stocks(Rule):
-    __name__='Stop_loss_stocks'
-    # get_period_func 为获取period的函数,无传入参数，传出参数为period
-    # on_close_position_func 卖出股票时触发的事件，传入参数为 stock,无返回
-    def __init__(self,params):
-        self.last_high = {}
-        self.period = params.get('period',3)
-        self.pct_change = {}
-    def update_params(self,context,params):
-        self.period = params.get('period',self.period)
-        
-    # 个股止损
-    def handle_data(self,context, data):
-        for stock in context.portfolio.positions.keys():
-            cur_price = data[stock].close
-            xi = history_bars(stock, 2, '1d', 'high')
-            ma = xi.max()
-            if self.last_high[stock] < cur_price:
-                self.last_high[stock] = cur_price
-
-            threshold = self.__get_stop_loss_threshold(stock, self.period)
-            #logger.debug("个股止损阈值, stock: %s, threshold: %f" %(stock, threshold))
-            if cur_price < self.last_high[stock] * (1 - threshold):
-                #logger.info("==> 个股止损, stock: %s, cur_price: %f, last_high: %f, threshold: %f" 
-                #   %(stock, cur_price, self.last_high[stock], threshold))
-    
-                position = context.portfolio.positions[stock]
-                self.close_position(position,False)
-    
-    # 获取个股前n天的m日增幅值序列
-    # 增加缓存避免当日多次获取数据
-    def __get_pct_change(self,security, n, m):
-        pct_change = None
-        if security in self.pct_change.keys():
-            pct_change = self.pct_change[security]
-        else:
-            h = history_bars(security, n, '1d', 'close')
-            pct_change = h['close'].pct_change(m) # 3日的百分比变比（即3日涨跌幅）
-            self.pct_change[security] = pct_change
-        return pct_change
-        
-    # 计算个股回撤止损阈值
-    # 即个股在持仓n天内能承受的最大跌幅
-    # 算法：(个股250天内最大的n日跌幅 + 个股250天内平均的n日跌幅)/2
-    # 返回正值
-    def __get_stop_loss_threshold(self,security, n = 3):
-        pct_change = self.__get_pct_change(security, 250, n)
-        #logger.debug("pct of security [%s]: %s", pct)
-        maxd = pct_change.min()
-        #maxd = pct[pct<0].min()
-        avgd = pct_change.mean()
-        #avgd = pct[pct<0].mean()
-        # maxd和avgd可能为正，表示这段时间内一直在增长，比如新股
-        bstd = (maxd + avgd) / 2
-    
-        # 数据不足时，计算的bstd为nan
-        if not isnan(bstd):
-            if bstd != 0:
-                return abs(bstd)
-            else:
-                # bstd = 0，则 maxd <= 0
-                if maxd < 0:
-                    # 此时取最大跌幅
-                    return abs(maxd)
-    
-        return 0.099 # 默认配置回测止损阈值最大跌幅为-9.9%，阈值高貌似回撤降低
-
-    def when_sell_stock(self,position,order,is_normal):
-        if position.security in self.last_high:
-            self.last_high.pop(position.security)
-        pass
-    
-    def when_buy_stock(self,stock,order):
-        if order.status == OrderStatus.held and order.filled == order.amount:
-            # 全部成交则删除相关证券的最高价缓存
-            self.last_high[stock] = get_close_price(stock, 1, '1m')
-        pass
-    
-    def after_trading_end(self,context):
-        self.pct_change = {}
-        pass
-                
-    def __str__(self):
-        return '个股止损器:[当前缓存价格数: %d ]'%(len(self.__last_high))
-        
-''' ----------------------个股止盈 by pct_change------------------------------'''
-class Stop_profit_stocks(Rule):
-    __name__='Stop_profit_stocks'
-    def __init__(self,params):
-        self.last_high = {}
-        self.period = params.get('period',3)
-        self.pct_change = {}
-    def update_params(self,context,params):
-        self.period = params.get('period',self.period)    
-    # 个股止盈
-    def handle_data(self,context, data):
-        for stock in context.portfolio.positions.keys():
-                position = context.portfolio.positions[stock]
-                cur_price = data[stock].close
-                threshold = self.__get_stop_profit_threshold(stock, self.period)
-                #logger.debug("个股止盈阈值, stock: %s, threshold: %f" %(stock, threshold))
-                if cur_price > position.avg_cost * (1 + threshold):
-                    #logger.info("==> 个股止盈, stock: %s, cur_price: %f, avg_cost: %f, threshold: %f" 
-                    #    %(stock, cur_price, self.last_high[stock], threshold))
-        
-                    position = context.portfolio.positions[stock]
-                    self.close_position(position,False)
-
-    # 获取个股前n天的m日增幅值序列
-    # 增加缓存避免当日多次获取数据
-    def __get_pct_change(self,security, n, m):
-        pct_change = None
-        if security in self.pct_change.keys():
-            pct_change = self.pct_change[security]
-        else:
-            h = history_bars(security, n, '1d', 'close')
-            pct_change = h['close'].pct_change(m) # 3日的百分比变比（即3日涨跌幅）
-            self.pct_change[security] = pct_change
-        return pct_change
-    
-    # 计算个股止盈阈值
-    # 算法：个股250天内最大的n日涨幅
-    # 返回正值
-    def __get_stop_profit_threshold(self,security, n = 3):
-        pct_change = self.__get_pct_change(security, 250, n)
-        maxr = pct_change.max()
-        
-        # 数据不足时，计算的maxr为nan
-        # 理论上maxr可能为负
-        if (not isnan(maxr)) and maxr != 0:
-            return abs(maxr)
-        return 0.30 # 默认配置止盈阈值最大涨幅为30%
-    
-    def when_sell_stock(self,position,order,is_normal):
-        if order.status == OrderStatus.held and order.filled == order.amount:
-            # 全部成交则删除相关证券的最高价缓存
-            if position.security in self.last_high:
-                self.last_high.pop(position.security)
-        pass
-    
-    def when_buy_stock(self,stock,order):
-        self.last_high[stock] = get_close_price(stock, 1, '1m')
-        pass
-    
-    def after_trading_end(self,context):
-        self.pct_change = {}
-        pass
-    def __str__(self):
-        return '个股止盈器:[当前缓存价格数: %d ]'%(len(self.__last_high))
-
 ''' ----------------------个股止损 by 比例-------------------------------------'''
 class Stop_loss_stocks_by_percentage(Rule):
     __name__='Stop_loss_stocks_by_percentage'
@@ -171,54 +20,39 @@ class Stop_loss_stocks_by_percentage(Rule):
     # 个股止损
     def handle_data(self,context, data):
 
-        #print('called')
-
         for stock in context.portfolio.positions.keys():
-
-            #print(stock)
 
             if context.portfolio.positions[stock].quantity > 0:
 
+                #当前价格
                 cur_price = data[stock].close
-
+                
+                #历史最高价格
                 stockdic = context.maxvalue[stock]
                 highest = stockdic[0]
 
-                print(highest)
-
                 if data[stock].high > highest:
-
-                    #print(data[stock].high)
 
                     del context.maxvalue[stock]        
                     temp = pd.DataFrame({str(stock):[max(highest, data[stock].high)]})
-
-                    #print(temp)
-
                     context.maxvalue = pd.concat([context.maxvalue, temp], axis=1, join='inner') # 更新其盘中最高价值和先阶段比例。
 
-                    #print(context.maxvalue[stock])
-
+                    #更新历史最高价格
                     stockdic = context.maxvalue[stock]
                     highest = stockdic[0]
 
-                    #print(context.maxvalue[stock])
-
                 if cur_price < highest * (1 - self.percent):
-                
-                    #print('called')
-
                     position = context.portfolio.positions[stock]
                     self.close_position(position, False)
+                    context.black_list.append(stock)
 
-                    logger.debug("==> 个股止损, stock: %s, cur_price: %f" %(stock, cur_price))
+                    logger.info("==> 个股回落比例止损, stock: %s, cur_price: %f, max_price %f" %(stock, cur_price, highest))
             else:
                 if stock in context.ATRList:
                     context.ATRList.remove(stock)
 
-                #del context.maxvalue[stock]
-                #context.ATRList.remove(stock)
-
+                #if stock in context.maxvalue.keys:
+                    #del context.maxvalue[stock]
 
     def when_sell_stock(self,position,order,is_normal):
         #if position.security in self.last_high:
@@ -233,45 +67,6 @@ class Stop_loss_stocks_by_percentage(Rule):
            
     def __str__(self):
         return '个股止损器:[按比例止损: %d ]' %self.percent
-
-''' ----------------------个股止赢 by 比例-------------------------------------'''
-class Stop_profit_stocks_by_percentage(Rule):
-    __name__='Stop_profit_stocks_by_percentage'
-
-    def __init__(self,params):
-        self.percent = params.get('percent', 0.02)
-        #self.last_high = {}
-        #self.pct_change = {}
-    def update_params(self,context,params):
-        self.percent = params.get('percent', self.percent)
-        
-    # 个股止损
-    def handle_data(self,context, data):
-
-        #print('called')
-        for stock in context.portfolio.positions.keys():
-            cur_price = data[stock].close
-            if cur_price > context.portfolio.positions[stock].avg_price * (1 + self.percent):
-                position = context.portfolio.positions[stock]
-                if position.sellable > 0:
-                    
-                    close_position_2(position, False)
-                    logger.debug("==> 个股止盈, stock: %s, cur_price: %f" %(stock, cur_price))
-                    pass
-        #print('called')
-    def when_sell_stock(self,position,order,is_normal):
-        #if position.security in self.last_high:
-        #    self.last_high.pop(position.security)
-        pass
-    
-    def when_buy_stock(self,stock,order):
-        #if order.status == OrderStatus.held and order.filled == order.amount:
-            # 全部成交则删除相关证券的最高价缓存
-        #    self.last_high[stock] = get_close_price(stock, 1, '1m')
-        pass
-           
-    def __str__(self):
-        return '个股止损器:[按比例止赢: %d ]' %self.percent
 
 ''' ----------------------个股止损 by ATR-------------------------------------'''
 class Stop_loss_stocks_by_ATR(Rule):
@@ -361,26 +156,7 @@ class Sell_stocks(Adjust_position):
 
     def __str__(self):
         return '股票调仓卖出规则：卖出不在buy_stocks的股票'
-
-
-'''---------------卖出股票规则2--------------'''       
-class Sell_stocks2(Adjust_position):
-    __name__='Sell_stocks2'
-    def adjust(self,context,data,buy_stocks):
-
-        # 现持仓的股票，如果不在“目标池”中，且未涨停，卖出
-        if len(context.portfolio.positions) > 0:
-            for stock in context.portfolio.positions.keys():
-
-                if stock not in buy_stocks:
-                #if data[stock].close < current_snapshot(stock).prev_close*1.005:
-                    position = context.portfolio.positions[stock]
-                    self.close_position(position)
-
-                #else:
-                    #logger.debug("Sell_stocks2 stock [%s] 无需卖出" %(stock))
-    def __str__(self):
-        return '股票调仓卖出规则：卖出不在buy_stocks且未涨停的的股票'        
+      
     
 '''---------------买入股票规则--------------'''  
 class Buy_stocks(Adjust_position):
@@ -435,6 +211,7 @@ class Buy_stocks(Adjust_position):
         pass
     def __str__(self):
         return '股票调仓买入规则：现金平分式买入股票达目标股票数'
+        
 '''---------------买入股票规则--------------'''  
 class Buy_stocks_low(Adjust_position):
     __name__='Buy_stocks_low'
@@ -449,9 +226,6 @@ class Buy_stocks_low(Adjust_position):
         # 此处只根据可用金额平均分配购买，不能保证每个仓位平均分配
 
         #开盘和尾盘不进行交易
-
-
-
         if context.timedelt < 15 or context.timedelt > 237:
             return
 
@@ -471,10 +245,6 @@ class Buy_stocks_low(Adjust_position):
             macd_df_60 = context.bar_60[stock]
             macd_df_30 = context.bar_30[stock]
             macd_df_15 = context.bar_15[stock]
-            #macd_df_5 = context.bar_5[stock]
-
-            #print(context.position)
-            #print(context.portfolio.market_value/context.portfolio.portfolio_value)
 
             if (context.portfolio.market_value / context.portfolio.portfolio_value) > context.position:
                 return
@@ -492,23 +262,15 @@ class Buy_stocks_low(Adjust_position):
                 createdic(context, data, stock)
                     
                 if context.portfolio.positions[stock].value_percent * 1.1 < (context.position/self.buy_count)*0.75:
-                    self.open_position_by_percent(stock, (context.position/self.buy_count)*0.5 )
+                    self.open_position_by_percent(stock, (context.position/self.buy_count)*0.75 )
 
             if macd_df_15.iloc[-1]['bottom_buy'] == 1 and context.index_df.iloc[-1]['macd'] > 0:
 
                 createdic(context, data, stock)
                     
                 if context.portfolio.positions[stock].value_percent * 1.1 < (context.position/self.buy_count)*0.5:
-                    self.open_position_by_percent(stock, (context.position/self.buy_count)*0.25 )
+                    self.open_position_by_percent(stock, (context.position/self.buy_count)*0.5 )
 
-            '''
-            if macd_df_5.iloc[-1]['bottom_buy'] == 1 and context.index_df.iloc[-1]['macd'] > 0:
-
-                createdic(context, data, stock)
-                    
-                if context.portfolio.positions[stock].value_percent * 1.1 < (context.position/self.buy_count)*0.5:
-                    self.open_position_by_percent(stock, (context.position/self.buy_count)*0.25 )
-            '''
             #else:
                 #self.open_position_by_percent(stock, 1/buy_count)
 
