@@ -28,8 +28,6 @@ class Filter_gem(Filter_stock_list):
 
         context.stock_list = result_list
 
-        print('Filter_gem count = ', len(context.stock_list))
-
         return None
     def filter(self,context,data,stock_list):
         return [stock for stock in stock_list if stock[0:3] != '300']
@@ -49,7 +47,6 @@ class Filter_paused_stock(Filter_stock_list):
                 pass
                 
         context.stock_list = result_list
-        print('Filter_paused_stock count = ', len(context.stock_list))
 
         return None
     def filter(self,context,data,stock_list):
@@ -75,8 +72,6 @@ class Filter_limitup(Filter_stock_list):
                 result_list.append(stock)
 
         context.stock_list = result_list
-
-        print('Filter_limitup count = ', len(context.stock_list))
 
         return context.stock_list
     def filter(self,context,data,stock_list):
@@ -146,9 +141,6 @@ class Filter_old_stock(Filter_stock_list):
         
         context.stock_list = [stock for stock in context.stock_list 
             if instruments(stock).days_from_listed() <= self.day_count_max and instruments(stock).days_from_listed() >= self.day_count_min]
-
-        print('Filter_old_stock count = ', len(context.stock_list))
-
         return context.stock_list
 
     def update_params(self,context,params):
@@ -274,8 +266,6 @@ class Filter_rank(Filter_stock_list):
         if len(context.stock_list) > self.rank_stock_count:
             context.stock_list = context.stock_list[:self.rank_stock_count]
 
-        print('Filter_buy_count count = ', len(context.stock_list))
-
         return None
 
     def filter(self,context,data,stock_list):
@@ -321,20 +311,14 @@ class Filter_buy_count(Filter_stock_list):
     def before_trading_start(self, context):
 
         if len(context.stock_list) > self.buy_count:
-
             context.stock_list = context.stock_list[:self.buy_count]
-
-        print('Filter_buy_count count = ', len(context.stock_list))
 
         return context.stock_list
 
     def filter(self,context,data,stock_list):
 
         if len(context.stock_list) > self.buy_count:
-
             context.stock_list = context.stock_list[:self.buy_count]
-
-        print('Filter_buy_count count = ', len(context.stock_list))
 
         return context.stock_list
     def __str__(self):

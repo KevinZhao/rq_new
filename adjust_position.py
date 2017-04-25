@@ -171,11 +171,11 @@ class Stop_loss_stocks_by_percentage(Rule):
     # 个股止损
     def handle_data(self,context, data):
 
-        print('called')
+        #print('called')
 
         for stock in context.portfolio.positions.keys():
 
-            print(stock)
+            #print(stock)
 
             if context.portfolio.positions[stock].quantity > 0:
 
@@ -188,33 +188,36 @@ class Stop_loss_stocks_by_percentage(Rule):
 
                 if data[stock].high > highest:
 
-                    print(data[stock].high)
+                    #print(data[stock].high)
 
                     del context.maxvalue[stock]        
                     temp = pd.DataFrame({str(stock):[max(highest, data[stock].high)]})
 
-                    print(temp)
+                    #print(temp)
 
-                    context.maxvalue= pd.concat([context.maxvalue, temp], axis=1, join='inner') # 更新其盘中最高价值和先阶段比例。
+                    context.maxvalue = pd.concat([context.maxvalue, temp], axis=1, join='inner') # 更新其盘中最高价值和先阶段比例。
 
-                    print(context.maxvalue[stock])
+                    #print(context.maxvalue[stock])
 
                     stockdic = context.maxvalue[stock]
                     highest = stockdic[0]
 
-                    print(context.maxvalue[stock])
+                    #print(context.maxvalue[stock])
 
                 if cur_price < highest * (1 - self.percent):
                 
-                    print('called')
+                    #print('called')
 
                     position = context.portfolio.positions[stock]
                     self.close_position(position, False)
 
                     logger.debug("==> 个股止损, stock: %s, cur_price: %f" %(stock, cur_price))
             else:
-                del context.maxvalue[stock]
-                context.ATRList.remove(stock)
+                if stock in context.ATRList:
+                    context.ATRList.remove(stock)
+
+                #del context.maxvalue[stock]
+                #context.ATRList.remove(stock)
 
 
     def when_sell_stock(self,position,order,is_normal):
@@ -468,7 +471,7 @@ class Buy_stocks_low(Adjust_position):
             macd_df_60 = context.bar_60[stock]
             macd_df_30 = context.bar_30[stock]
             macd_df_15 = context.bar_15[stock]
-            macd_df_5 = context.bar_5[stock]
+            #macd_df_5 = context.bar_5[stock]
 
             #print(context.position)
             #print(context.portfolio.market_value/context.portfolio.portfolio_value)
@@ -498,12 +501,14 @@ class Buy_stocks_low(Adjust_position):
                 if context.portfolio.positions[stock].value_percent * 1.1 < (context.position/self.buy_count)*0.5:
                     self.open_position_by_percent(stock, (context.position/self.buy_count)*0.25 )
 
+            '''
             if macd_df_5.iloc[-1]['bottom_buy'] == 1 and context.index_df.iloc[-1]['macd'] > 0:
 
                 createdic(context, data, stock)
                     
                 if context.portfolio.positions[stock].value_percent * 1.1 < (context.position/self.buy_count)*0.5:
                     self.open_position_by_percent(stock, (context.position/self.buy_count)*0.25 )
+            '''
             #else:
                 #self.open_position_by_percent(stock, 1/buy_count)
 

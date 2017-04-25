@@ -146,7 +146,7 @@ def calculate_macd(df):
 
     return df
 
-def macd_alert_calculation(macd_df, stock):
+def macd_alert_calculation(macd_df):
 
     #print('get called')
     
@@ -204,8 +204,6 @@ def macd_alert_calculation(macd_df, stock):
                     n3 = i;
                     break; 
 
-
-
     #本周期和前一个周期的峰值计算
     current_price = macd_df.iloc[-1]['close']
     current_diff = macd_df.iloc[-1]['diff']
@@ -223,30 +221,28 @@ def macd_alert_calculation(macd_df, stock):
 
         # 价格创新低，diff未创新低
         if (current_price < last_min_price) and (current_diff > last_min_diff):
-            
-            #if signals[stock].bottom_alert != True:
-            print(stock, "底部钝化形成", current_diff, current_price)
             macd_df['bottom_alert'][df_count - 1] = 1
-    #print('called3')
-            
-    # 钝化消失判断
-    #if signals[stock].bottom_alert:
-    #    if current_diff < last_min_diff:
-    #        signals[stock].bottom_alert = False;
-            #print(minute_object.frequency, "分钟 底部钝化消失", current_diff, current_price);
-        
-    # 钝化状态下，diff拐点
 
-    #print('called')
-    #print(macd_df)
+    # 钝化消失判断
+    # 钝化状态中
+    for i in range(1, df_count):
+        if macd_df.iloc[-i]['bottom_alert'] == 1:
+
+            # 当前diff 小于 前峰值的最小diff
+            if current_diff < last_min_diff:
+                macd_df['bottom_alert'] = pd.DataFrame(None, index = macd_df.index, columns = ['bottom_alert'])
+            break
+        
+    # 结构形成判断
+    # 钝化状态中
     for i in range(1, df_count):
         if macd_df.iloc[-i]['bottom_alert'] == 1:
             
-            if (current_diff > macd_df.iloc[-2]['diff']): #and (n1*2 > n3) :
+            # diff向上拐点
+            if (current_diff > macd_df.iloc[-2]['diff']): 
                 macd_df['bottom_buy'][df_count - 1] = 1
-                #print(macd_df)
-                print(stock, " 分钟 底部结构形成", current_diff, current_price)
-                #print(macd_df)
+                print(macd_df)
+                break
 
     return macd_df
 
