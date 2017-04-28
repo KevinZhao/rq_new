@@ -330,71 +330,11 @@ class Index_MACD_condition(Adjust_condition):
 
         context.position = 0
 
-        # MACD 日线 值计算
-
-        macd_index_df = calculate_macd(context.index_df)
-
-        #logger.info("当前%s指数的MACD值为日线: diff %.2f dea %.2f" %(instruments(self.index).symbol, macd_index_df.iloc[-1]['diff'],macd_index_df.iloc[-1]['dea']))
-        
-        #判断条件 day
-        if macd_index_df.iloc[-1]['diff'] < macd_index_df.iloc[-1]['dea']:
-            context.position = context.position + 0
-
-        if macd_index_df.iloc[-1]['diff'] > macd_index_df.iloc[-1]['dea']:
-            context.position = context.position + 0.4
-        '''
-        #MACD 60分钟 计算
-        #close = history_bars(self.index, 150, '60m', 'close')
-
-        #print(close)
-
-        #index_df = pd.DataFrame(columns = {'close', 'diff', 'dea', 'macd'})
-        #index_df = pd.DataFrame(close, columns = ['close'])
-        print(context.index_df_60)
-
-        macd_index_df = calculate_macd(context.index_df_60)
-
-        logger.info("当前%s指数的MACD值为60分钟: diff %.2f dea %.2f" %(instruments(self.index).symbol, macd_index_df.iloc[-1]['diff'],macd_index_df.iloc[-1]['dea']))
-
-        if macd_index_df.iloc[-1]['diff'] < macd_index_df.iloc[-1]['dea']:
-            context.position = context.position + 0
-
-        if macd_index_df.iloc[-1]['diff'] > macd_index_df.iloc[-1]['dea']:
-            context.position = context.position + 0.3
-
-        
-        close = history_bars(self.index, 150, '30m', 'close')
-
-        index_df = pd.DataFrame(columns = {'close', 'diff', 'dea', 'macd'})
-        index_df = pd.DataFrame(close, columns = ['close'])
-
-        macd_index_df = calculate_macd(index_df)
-
-        logger.info("当前%s指数的MACD值为30分钟: diff %.2f dea %.2f" %(instruments(self.index).symbol, macd_index_df.iloc[-1]['diff'],macd_index_df.iloc[-1]['dea']))
-        
-        #判断条件 day
-        if macd_index_df.iloc[-1]['diff'] < macd_index_df.iloc[-1]['dea']:
-            context.position = context.position + 0
-
-        if macd_index_df.iloc[-1]['diff'] > macd_index_df.iloc[-1]['dea']:
-            context.position = context.position + 0.2
-
-        # MACD 60分钟 计算
-        close = history_bars(self.index, 150, '15m', 'close')
-
-        index_df = pd.DataFrame(columns = {'close', 'diff', 'dea', 'macd'})
-        index_df = pd.DataFrame(close, columns = ['close'])
-
-        macd_index_df = calculate_macd(index_df)
-
-        logger.info("当前%s指数的MACD值为15分钟: diff %.2f dea %.2f" %(instruments(self.index).symbol, macd_index_df.iloc[-1]['diff'],macd_index_df.iloc[-1]['dea']))
-
-        if macd_index_df.iloc[-1]['diff'] < macd_index_df.iloc[-1]['dea']:
-            context.position = context.position + 0
-
-        if macd_index_df.iloc[-1]['diff'] > macd_index_df.iloc[-1]['dea']:
-            context.position = context.position + 0.1
-        '''
+        #日线
+        if context.index_df.iloc[-1]['macd'] > 0:
+            context.position = 1
+        else:
+            context.position = 1
 
         if context.position > 0:
             self.t_can_adjust = True
