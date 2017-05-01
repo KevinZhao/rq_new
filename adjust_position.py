@@ -7,7 +7,7 @@ from util import *
 
 '''==============================个股止盈止损规则=============================='''
 
-''' ----------------------个股止损 by 比例-------------------------------------'''
+''' ---------个股止损 by 自最高值回落一定比例比例进行止损-------------------------'''
 class Stop_loss_stocks_by_percentage(Rule):
     __name__='Stop_loss_stocks_by_percentage'
 
@@ -20,8 +20,10 @@ class Stop_loss_stocks_by_percentage(Rule):
     # 个股止损
     def handle_data(self,context, data):
 
+        #持仓股票循环
         for stock in context.portfolio.positions.keys():
 
+            #持有数量超过0
             if context.portfolio.positions[stock].quantity > 0:
 
                 #当前价格
@@ -46,7 +48,7 @@ class Stop_loss_stocks_by_percentage(Rule):
                     self.close_position(position, False)
                     context.black_list.append(stock)
 
-                    logger.info("==> 个股回落比例止损, stock: %s, cur_price: %f, max_price %f" %(stock, cur_price, highest))
+                    print('[比例止损卖出]', instruments(stock).symbol, context.portfolio.positions[stock].avg_price, highest, data[stock].last)
             else:
                 if stock in context.ATRList:
                     context.ATRList.remove(stock)
@@ -68,7 +70,7 @@ class Stop_loss_stocks_by_percentage(Rule):
     def __str__(self):
         return '个股止损器:[按比例止损: %d ]' %self.percent
 
-''' ----------------------个股止损 by ATR-------------------------------------'''
+''' ----------------------个股止损 by ATR 60-------------------------------------'''
 class Stop_loss_stocks_by_ATR(Rule):
     __name__='Stop_loss_stocks_by_ATR'
 
@@ -100,7 +102,7 @@ class Stop_loss_stocks_by_ATR(Rule):
         
                 if data[stock].last < highest - 3*ATR:
                 
-                    print(str(stock)+'的成本为：' +str( context.portfolio.positions[stock].average_cost) +', 最高价为：'+str(highest)+'ATR为：'+ str(ATR) + '当前价格为: ' + str(data[stock].last))
+                    print('[ATR止损卖出]', instruments(stock).symbol, context.portfolio.positions[stock].avg_price, highest, data[stock].last)
                     position = context.portfolio.positions[stock]
                     self.close_position(position)
                     context.black_list.append(stock)
@@ -133,13 +135,14 @@ class Adjust_position(Rule):
     def adjust(self,context,data,buy_stocks):
         pass
 
-'''---------------卖出股票规则--------------'''  
-     
+'''---------------卖出股票规则------------------------'''
+'''---------------个股涨幅超过5%，进入ATR--------------'''  
 class Sell_stocks(Adjust_position):
     __name__='Sell_stocks'
     def adjust(self,context,data,buy_stocks):
         
         for stock in context.portfolio.positions.keys():
+            
             if context.portfolio.positions[stock].quantity == 0:
                 return
 
@@ -152,67 +155,105 @@ class Sell_stocks(Adjust_position):
 
             else:
                 if stock not in context.ATRList: #and data[stock].close > context.portfolio.positions[stock].avg_price * 1.04:
-                    context.ATRList.append(stock)
+                    if stock not in context.ATRList.keys:
+                        context.ATRList.append(stock)
+                        pass
+                    
+            if stock in context.stock_60:
+                #涨幅 8%
+                if data[stock].close > context.portfolio.positions[stock].avg_price * 1.07:
+                    positions = context.portfolio.positions[stock]
+                    percentage = context.portfolio.positions[stock].value_percent
+
+                    print('60分钟 7%止盈卖出')
+                    close_position_2(positions, percentage/2)
+                    context.black_list.append(stock)
+                    context.stock_60.remove(stock)
+
+            if stock in context.stock_30:
+                #涨幅 4%
+                if data[stock].close > context.portfolio.positions[stock].avg_price * 1.04:
+                    positions = context.portfolio.positions[stock]
+                    percentage = context.portfolio.positions[stock].value_percent
+
+                    print('30分钟 4%止盈卖出')
+                    close_position_2(positions, percentage/2)
+                    context.black_list.append(stock)
+                    context.stock_30.remove(stock)
+
+            if stock in context.stock_15:
+                #涨幅 2.5%
+                if data[stock].close > context.portfolio.positions[stock].avg_price * 1.025:
+                    positions = context.portfolio.positions[stock]
+                    percentage = context.portfolio.positions[stock].value_percent
+
+                    print('30分钟 2.5%止盈卖出')
+                    close_position_2(positions, percentage/2)
+                    context.black_list.append(stock)
+                    context.stock_15.remove(stock)
+
 
     def __str__(self):
         return '股票调仓卖出规则：卖出不在buy_stocks的股票'
       
     
-'''---------------买入股票规则--------------'''  
-class Buy_stocks(Adjust_position):
+'''---------------买入股票规则 补足仓位--------------'''  
+class Buy_stocks_position(Adjust_position):
     __name__='Buy_stocks'
     def __init__(self,params):
         self.buy_count = params.get('buy_count', 4)
     def update_params(self,context,params):
         self.buy_count = params.get('buy_count',self.buy_count)
     def adjust(self,context,data,buy_stocks):
-        # 买入股票
-        # 始终保持持仓数目为g.buy_stock_count
-        # 根据股票数量分仓
-        # 此处只根据可用金额平均分配购买，不能保证每个仓位平均分配
 
-        #开盘和尾盘不进行交易
-        if context.timedelt < 60 or context.timedelt > 237:
+        # 买入股票 交易时间为下午2点
+        if (context.timedelt != 230):
             return
 
-        #60分钟线进行交易
-        if (context.timedelt % 60 >= 5) or (context.timedelt % 60 == 0): #and (context.timedelt % 60 <= 5):
+        actual_position = context.portfolio.market_value / context.portfolio.portfolio_value
+
+        if actual_position > context.position * 0.95:
             return
 
-        #股票打分    
-        stock_score(context)
+        #避免小额下单
+        if context.portfolio.cash < 10000:
+            return
 
-        for stock in buy_stocks:
+        buy_stock_list = []
+
+        stock_list_count = len(context.stock_list)
+
+        #当指数diff大于0，买入分数最高的2只和分数最低的2只
+        if context.index_df.iloc[-1]['diff'] > 0:
+
+            buy_stock_list.append(context.stock_list[0])
+            buy_stock_list.append(context.stock_list[1])
+            buy_stock_list.append(context.stock_list[stock_list_count - 1])
+            buy_stock_list.append(context.stock_list[stock_list_count - 2])
+
+        #当指数diff小于0，买入分数最低的4只
+        if context.index_df.iloc[-1]['diff'] < 0:
+
+            buy_stock_list.append(context.stock_list[0])
+            buy_stock_list.append(context.stock_list[1])
+            buy_stock_list.append(context.stock_list[2])
+            buy_stock_list.append(context.stock_list[3])
+
+        for stock in buy_stock_list:
 
             if stock in context.black_list:
                 return
-
-            #避免小额下单
-            if context.portfolio.cash < 20000:
-                return
-
-            #构成买入条件
-            if context.score_df[stock].iloc[-1]['close'] > (context.score_df[stock].iloc[-2]['close'] * 0.98) and (context.score_df[stock].iloc[-1]['close'] < context.score_df[stock].iloc[-2]['close'] * 1.04):
-                
-                #计算买入数量
-                #print('现金占比', context.portfolio.cash / context.portfolio.portfolio_value)
-
-                #if context.portfolio.cash / context.portfolio.portfolio_value > 1 / self.buy_count:
-                    #print(context.portfolio.portfolio_value * 1 / self.buy_count / data[stock].close)
-
-
-                createdic(context, data, stock)
-                    
-                if context.portfolio.positions[stock].value_percent * 1.1 < 1/self.buy_count:
-                    self.open_position_by_percent(stock, 1/self.buy_count)
-            #else:
-                #self.open_position_by_percent(stock, 1/buy_count)
+            
+            createdic(context, data, stock)
+            if context.portfolio.positions[stock].value_percent * 1.05 < ((context.position - actual_position)/self.buy_count):
+                self.open_position_by_percent(stock, ((context.position - actual_position)/self.buy_count))
+                print('[Score 补仓买入]', instruments(stock).symbol, ((context.position - actual_position)/self.buy_count))
 
         pass
     def __str__(self):
         return '股票调仓买入规则：现金平分式买入股票达目标股票数'
         
-'''---------------买入股票规则--------------'''  
+'''---------------买入股票规则 按底部结构买入--------------'''  
 class Buy_stocks_low(Adjust_position):
     __name__='Buy_stocks_low'
     def __init__(self,params):
@@ -257,6 +298,11 @@ class Buy_stocks_low(Adjust_position):
                 if context.portfolio.positions[stock].value_percent * 1.1 < context.position/self.buy_count:
                     self.open_position_by_percent(stock, context.position/self.buy_count)
 
+                    if stock not in context.stock_60.keys:
+                        context.stock_60.append(stock)
+
+                    print('[60分钟 底部结构买入]', instruments(stock).symbol, context.position/self.buy_count)
+
             if macd_df_30.iloc[-1]['bottom_buy'] == 1:
 
                 createdic(context, data, stock)
@@ -264,12 +310,23 @@ class Buy_stocks_low(Adjust_position):
                 if context.portfolio.positions[stock].value_percent * 1.1 < (context.position/self.buy_count)*0.75:
                     self.open_position_by_percent(stock, (context.position/self.buy_count)*0.75 )
 
+                    if stock not in context.stock_30.keys:
+                        context.stock_30.append(stock)
+
+
+                    print('[30分钟 底部结构买入]', instruments(stock).symbol, context.position/self.buy_count)
+
             if macd_df_15.iloc[-1]['bottom_buy'] == 1 and context.index_df.iloc[-1]['macd'] > 0:
 
                 createdic(context, data, stock)
                     
                 if context.portfolio.positions[stock].value_percent * 1.1 < (context.position/self.buy_count)*0.5:
                     self.open_position_by_percent(stock, (context.position/self.buy_count)*0.5 )
+
+                    if stock not in context.stock_30.keys:
+                        context.stock_30.append(stock)
+
+                    print('[15分钟 底部结构买入]', instruments(stock).symbol, context.position/self.buy_count)
 
             #else:
                 #self.open_position_by_percent(stock, 1/buy_count)
@@ -304,52 +361,6 @@ class Buy_stocks2(Adjust_position):
     def __str__(self):
         return '股票调仓买入规则：现金平分式买入股票达目标股票数'
 
-'''---------------买入股票规则--------------'''  
-class Buy_stocks_30m(Adjust_position):
-    __name__='Buy_stocks_30m'
-    def __init__(self,params):
-        self.buy_count = params.get('buy_count',3)
-        self.buy_signal = False
-    def update_params(self,context,params):
-        self.buy_count = params.get('buy_count',self.buy_count)
-    def adjust(self,context,data, buy_stocks):
-        # 买入股票
-        # 始终保持持仓数目为g.buy_stock_count
-        # 根据股票数量分仓
-        # 此处只根据可用金额平均分配购买，不能保证每个仓位平均分配
-
-        #周期分钟线生成
-        #print('called')
-        for stock in buy_stocks:
-            if context.timedelt % 15 >= 1 and context.timedelt % 15 <= 3: #and context.now.hour != 9:
-
-                #15分钟K线 MACD值，出现金叉买入
-                if (context.bar_15[stock].iloc[-1]['diff'] > context.bar_15[stock].iloc[-1]['dea']) and (context.bar_15[stock].iloc[-2]['dea'] > context.bar_15[stock].iloc[-2]['diff']):
-
-                    self.buy_signal = True
-                    
-                    #30分钟线diff大于dea，或者diff下降值小于前值的一定比例
-                    if (context.bar[stock].iloc[-1]['diff'] > context.bar[stock].iloc[-1]['dea']) or (context.bar[stock].iloc[-1]['diff']/context.bar[stock].iloc[-2]['diff'] <= 1.01):
-
-                        #60分钟线买入判断
-                        if (context.bar_60[stock].iloc[-1]['diff'] > context.bar_60[stock].iloc[-1]['dea']) or (context.bar_60[stock].iloc[-1]['diff']/context.bar_60[stock].iloc[-2]['diff'] <= 1.01):
-
-                            if context.bar_15[stock].iloc[-1]['close'] / context.bar_15[stock].iloc[-2]['close'] >= 1.01:
-                                if context.portfolio.cash > 10000:
-                                    createdic(context, data, stock)
-                                    if context.portfolio.positions[stock].value_percent + 1/self.buy_count <= 1/self.buy_count:
-
-                                        #print(context.bar_60[stock].iloc[-1]['diff'], context.bar_60[stock].iloc[-2]['diff'])
-
-                                        self.open_position_by_percent(stock, context.portfolio.positions[stock].value_percent + 1/self.buy_count)
-
-                    #else:
-                    #    self.open_position_by_percent(stock, 0.6)
-        #print('called')
-        pass
-    def __str__(self):
-        return '股票调仓买入规则：现金平分式买入股票达目标股票数'
-
 def generate_portion(num):
     total_portion = num * (num+1) / 2
     start = num
@@ -357,28 +368,3 @@ def generate_portion(num):
         yield float(num) / float(total_portion)
         num -= 1
         
-class Buy_stocks_portion(Adjust_position):
-    def __init__(self,params):
-        self.buy_count = params.get('buy_count',3)
-    def update_params(self,context,params):
-        self.buy_count = params.get('buy_count',self.buy_count)
-    def adjust(self,context,data,buy_stocks):
-        # 买入股票
-        # 始终保持持仓数目为g.buy_stock_count
-        # 根据股票数量分仓
-        # 此处只根据可用金额平均分配购买，不能保证每个仓位平均分配
-        position_count = len(context.portfolio.positions)
-        if self.buy_count > position_count:
-            buy_num = self.buy_count - position_count
-            portion_gen = generate_portion(buy_num)
-            available_cash = context.portfolio.cash
-            for stock in buy_stocks:
-                if context.portfolio.positions[stock].quantity == 0:
-                    buy_portion = portion_gen.next()
-                    value = available_cash * buy_portion
-                    if self.open_position(stock, value):
-                        if len(context.portfolio.positions) == self.buy_count:
-                            break
-        pass
-    def __str__(self):
-        return '股票调仓买入规则：现金比重式买入股票达目标股票数'  

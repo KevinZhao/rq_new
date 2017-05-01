@@ -334,7 +334,7 @@ class Index_MACD_condition(Adjust_condition):
         if context.index_df.iloc[-1]['macd'] > 0:
             context.position = 1
         else:
-            context.position = 1
+            context.position = 0.5
 
         if context.position > 0:
             self.t_can_adjust = True

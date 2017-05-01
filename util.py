@@ -50,12 +50,12 @@ def close_position(position, is_normal = True):
 # 平仓成功并全部成交，返回True
 # 报单失败或者报单成功但被取消（此时成交量等于0），或者报单非全部成交，返回False
 # 报单成功，触发所有规则的when_sell_stock函数
-def close_position_2(position, is_normal = True):
+def close_position_2(position, percentage, is_normal = True):
     #print('called')
     security = position.order_book_id
     #value = position.quantity * (1 - 0.3)
     #print(value)
-    order = order_target_percent(security, 0.33*0.5) # 可能会因停牌失败
+    order = order_target_percent(security, percentage) # 可能会因停牌失败
     if order != None:
         #todo:
         #if order.filled > 0:
@@ -325,7 +325,7 @@ def calculate_macd_index(df):
 
 def stock_score(context):
 
-    result_df = pd.DataFrame(columns = {'stock', 'score', 'instruments'})
+    context.result_df = pd.DataFrame(columns = {'stock', 'score', 'instruments'})
 
     for stock in context.stock_list:
 
@@ -357,14 +357,14 @@ def stock_score(context):
             "stock":stock,
             "instruments":instruments(stock).symbol}, index = ["0"])
 
-        result_df = result_df.append(temp_data, ignore_index= True)
+        context.result_df = context.result_df.append(temp_data, ignore_index= True)
         context.score_df[stock] = score_df
 
-    result_df = result_df.sort(columns='score', ascending=True)
+    context.result_df = context.result_df.sort(columns='score', ascending=True)
 
-    print(result_df)
+    print(context.result_df)
 
-    context.stock_list = list(result_df.stock)
+    context.stock_list = list(context.result_df.stock)
 
     return None
 

@@ -261,20 +261,12 @@ class Filter_rank(Filter_stock_list):
 
     def before_trading_start(self, context):
 
-        stock_score(context)
-
         if len(context.stock_list) > self.rank_stock_count:
             context.stock_list = context.stock_list[:self.rank_stock_count]
 
         return None
 
     def filter(self,context,data,stock_list):
-        return None
-
-    def after_trading_end(self, context):
-
-        stock_score(context)
-
         return None
         
     def __str__(self):
