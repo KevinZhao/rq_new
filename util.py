@@ -147,8 +147,6 @@ def calculate_macd(df):
     return df
 
 def macd_alert_calculation(macd_df):
-
-    #print('get called')
     
     diff, dea, macd = talib.MACD(macd_df['close'].values, 12, 26, 9)
                    
@@ -156,10 +154,8 @@ def macd_alert_calculation(macd_df):
     macd_df['diff'] = pd.DataFrame(diff, index = macd_df.index, columns = ['diff'])
     macd_df['dea'] = pd.DataFrame(dea, index = macd_df.index, columns = ['dea'])
     macd_df['macd'] = pd.DataFrame(macd*2, index = macd_df.index, columns = ['macd'])
-
-    #print('called2')
     
-    #2. 计算波峰跨度
+    #1. 计算波峰跨度
     n1 = 0;
     n2 = 0;
     n3 = 0;
@@ -311,21 +307,17 @@ class Signal:
 
 def calculate_macd_index(df):
 
-    #print(df)
-
     diff, dea, macd = talib.MACD(df['close'].values, 12, 26, 9)
 
     df['diff'] = pd.DataFrame(diff, index = df.index, columns = ['diff'])
     df['dea'] = pd.DataFrame(dea, index = df.index, columns = ['dea'])
     df['macd'] = pd.DataFrame(macd*2, index = df.index, columns = ['macd'])
 
-    #print(df)
-
     return df
 
 def stock_score(context):
 
-    context.result_df = pd.DataFrame(columns = {'stock', 'score', 'instruments'})
+    context.result_df = pd.DataFrame(columns = {'stock', 'score', 'instruments', 'circulation_a', 'days_from_listed'})
 
     for stock in context.stock_list:
 
@@ -355,12 +347,19 @@ def stock_score(context):
         temp_data = pd.DataFrame(
             {"score":score_df.iloc[-1]['score'],
             "stock":stock,
-            "instruments":instruments(stock).symbol}, index = ["0"])
+            "instruments":instruments(stock).symbol,
+            "circulation_a":get_shares(stock, count =1, fields = 'circulation_a')[0] * context.bar_60[stock].iloc[-1]['close']/10000,
+            "days_from_listed":instruments(stock).days_from_listed()
+            }, index = ["0"])
 
         context.result_df = context.result_df.append(temp_data, ignore_index= True)
         context.score_df[stock] = score_df
 
-    context.result_df = context.result_df.sort(columns='score', ascending=True)
+    context.result_df = context.result_df.sort(columns='circulation_a', ascending=True)
+
+    context.result_df['30_bottom_alert'] = pd.DataFrame(None, index = context.result_df.index, columns = ['30_bottom_alert'])
+    #for row in result_df.iterrows():
+        #row[stock] = 
 
     print(context.result_df)
 
@@ -391,65 +390,25 @@ def isnan(value):
     else:
         return False
 
-def findATR(context, stock): # 玄学指标
-        #todo 修改为计算30分钟ATR
-        history_df = context.bar[stock].tail(context.ATRperiod+2)
-        
-        print(history_df)
+def findATR(context, bar, stock):
 
-        close = history_df['close'][0:context.ATRperiod]
-        high = history_df['high'][1:context.ATRperiod+1]
-        low = history_df['low'][1:context.ATRperiod+1]
+    history_df = bar[stock].tail(context.ATRperiod+2)
         
-        art1=high.values-low.values
-        art2=abs(close.values - high.values)
-        art3=abs(close.values - low.values)
-        art123=np.matrix([art1, art2, art3])
+    close = history_df['close'][0:context.ATRperiod]
+    high = history_df['high'][1:context.ATRperiod+1]
+    low = history_df['low'][1:context.ATRperiod+1]
         
-        rawatr=np.array(art123.max(0)).flatten()
-        ATR=rawatr.sum()/len(rawatr)
-        #print(str(stock)+'ATR='+str(ATR))
-        return ATR
+    art1=high.values-low.values
+    art2=abs(close.values - high.values)
+    art3=abs(close.values - low.values)
+    art123=np.matrix([art1, art2, art3])
+        
+    rawatr=np.array(art123.max(0)).flatten()
+    ATR=rawatr.sum()/len(rawatr)
 
-def findATR_15(context, stock): # 玄学指标
-        #todo 修改为计算30分钟ATR
-        history_df = context.bar_15[stock].tail(context.ATRperiod+2)
-        
-        close = history_df['close'][0:context.ATRperiod]
-        high = history_df['high'][1:context.ATRperiod+1]
-        low = history_df['low'][1:context.ATRperiod+1]
-        
-        art1=high.values-low.values
-        art2=abs(close.values - high.values)
-        art3=abs(close.values - low.values)
-        art123=np.matrix([art1, art2, art3])
-        
-        rawatr=np.array(art123.max(0)).flatten()
-        ATR=rawatr.sum()/len(rawatr)
-        #print(str(stock)+'ATR='+str(ATR))
-        return ATR
-
-def findATR_60(context, stock): # 玄学指标
-        #todo 修改为计算30分钟ATR
-        history_df = context.bar_60[stock].tail(context.ATRperiod+2)
-        #print(history_df)
-        
-        close = history_df['close'][0:context.ATRperiod]
-        high = history_df['high'][1:context.ATRperiod+1]
-        low = history_df['low'][1:context.ATRperiod+1]
-        
-        art1=high.values-low.values
-        art2=abs(close.values - high.values)
-        art3=abs(close.values - low.values)
-        art123=np.matrix([art1, art2, art3])
-        
-        rawatr=np.array(art123.max(0)).flatten()
-        ATR=rawatr.sum()/len(rawatr)
-        #print(str(stock)+'ATR='+str(ATR))
-        return ATR
+    return ATR
 
 def createdic(context, data, stock):
     if stock not in context.maxvalue.columns:
-        temp=pd.DataFrame({str(stock):[0]})    
+        temp = pd.DataFrame({str(stock):[0]})    
         context.maxvalue = pd.concat([context.maxvalue, temp], axis=1, join='inner')
-    #print(context.maxvalue)

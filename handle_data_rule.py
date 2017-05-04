@@ -131,6 +131,22 @@ class Handle_data_df(Handle_data_rule):
                 print("399678指数 30分钟结构")
         '''
 
+        if context.timedelt == 225:
+
+            temp_data = pd.DataFrame(
+                {"low":"",
+                "open":"",
+                "high":"",
+                "volume":"",
+                "close":current_snapshot('399678.XSHE').last,
+                "total_turnover":""}, index = ["0"])
+
+            #context.index_df = context.index_df.append(temp_data, ignore_index = True)
+            #context.index_df = macd_alert_calculation(context.index_df)
+
+            #print(current_snapshot('399678.XSHE'))
+            #print(context.index_df)
+
     def handle_minute_data(self, context, data, stock):
 
         if context.timedelt % 15 == 0:

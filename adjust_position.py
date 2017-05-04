@@ -83,12 +83,33 @@ class Stop_loss_stocks_by_ATR(Rule):
 
         for stock in context.ATRList:
 
-            if stock in context.portfolio.positions.keys() and context.portfolio.positions[stock].quantity > 0: #and stock not in context.stock_list:
+            if stock in context.portfolio.positions.keys() and context.portfolio.positions[stock].quantity > 0: 
 
-                ATR = findATR_60(context, stock)
+                #当前涨幅判断
+                raisePercentage = (data[stock].close - context.portfolio.positions[stock].avg_price)/context.portfolio.positions[stock].avg_price
 
-                high = context.bar_60[stock].iloc[-1]['high']
-                current = context.bar_60[stock].iloc[-1]['close']
+                if raisePercentage > 0.12:
+
+                    print(context.bar_60[stock])
+                    bar = context.bar_60
+
+                else:
+                    if raisePercentage > 0.8:
+
+                        bar = context.bar_30
+
+                    else:
+                        if raisePercentage > 0.4:
+
+                            bar = context.bar_15
+
+                        else:
+                            return
+
+                ATR = findATR(context, bar, stock)
+
+                high = bar[stock].iloc[-1]['high']
+                current = bar[stock].iloc[-1]['close']
                 stockdic = context.maxvalue[stock]
                 highest = stockdic[0]
 
@@ -100,9 +121,9 @@ class Stop_loss_stocks_by_ATR(Rule):
                 stockdic = context.maxvalue[stock]
                 highest = stockdic[0]
         
-                if data[stock].last < highest - 3*ATR:
+                if data[stock].close < highest - 3*ATR:
                 
-                    print('[ATR止损卖出]', instruments(stock).symbol, context.portfolio.positions[stock].avg_price, highest, data[stock].last)
+                    print('[ATR止损卖出]', instruments(stock).symbol, context.portfolio.positions[stock].avg_price, highest, data[stock].last, ATR)
                     position = context.portfolio.positions[stock]
                     self.close_position(position)
                     context.black_list.append(stock)
@@ -146,18 +167,20 @@ class Sell_stocks(Adjust_position):
             if context.portfolio.positions[stock].quantity == 0:
                 return
 
-            if data[stock].close < context.portfolio.positions[stock].avg_price * 1.05:
-                if data[stock].close < context.portfolio.positions[stock].avg_price * 0.92:
+            if context.portfolio.positions[stock].sellable == 0:
+                return
 
+            if data[stock].close < context.portfolio.positions[stock].avg_price * 1.04:
+
+                #止损
+                if data[stock].close < context.portfolio.positions[stock].avg_price * 0.92:
                     position = context.portfolio.positions[stock]
                     self.close_position(position)
                     context.black_list.append(stock)
 
             else:
                 if stock not in context.ATRList: #and data[stock].close > context.portfolio.positions[stock].avg_price * 1.04:
-                    if stock not in context.ATRList.keys:
-                        context.ATRList.append(stock)
-                        pass
+                    context.ATRList.append(stock)
                     
             if stock in context.stock_60:
                 #涨幅 8%
@@ -165,7 +188,7 @@ class Sell_stocks(Adjust_position):
                     positions = context.portfolio.positions[stock]
                     percentage = context.portfolio.positions[stock].value_percent
 
-                    print('60分钟 7%止盈卖出')
+                    print(stock, instruments(stock).symbol, data[stock].close, '60分钟 7%止盈卖出')
                     close_position_2(positions, percentage/2)
                     context.black_list.append(stock)
                     context.stock_60.remove(stock)
@@ -176,7 +199,7 @@ class Sell_stocks(Adjust_position):
                     positions = context.portfolio.positions[stock]
                     percentage = context.portfolio.positions[stock].value_percent
 
-                    print('30分钟 4%止盈卖出')
+                    print(stock, instruments(stock).symbol, data[stock].close, '30分钟 4%止盈卖出')
                     close_position_2(positions, percentage/2)
                     context.black_list.append(stock)
                     context.stock_30.remove(stock)
@@ -187,7 +210,7 @@ class Sell_stocks(Adjust_position):
                     positions = context.portfolio.positions[stock]
                     percentage = context.portfolio.positions[stock].value_percent
 
-                    print('30分钟 2.5%止盈卖出')
+                    print(stock, instruments(stock).symbol, data[stock].close, '15分钟 2.5%止盈卖出')
                     close_position_2(positions, percentage/2)
                     context.black_list.append(stock)
                     context.stock_15.remove(stock)
@@ -210,6 +233,9 @@ class Buy_stocks_position(Adjust_position):
         if (context.timedelt != 230):
             return
 
+        if context.index_df.iloc[-1]['macd'] < 0:
+            return
+
         actual_position = context.portfolio.market_value / context.portfolio.portfolio_value
 
         if actual_position > context.position * 0.95:
@@ -223,13 +249,16 @@ class Buy_stocks_position(Adjust_position):
 
         stock_list_count = len(context.stock_list)
 
+        '''
         #当指数diff大于0，买入分数最高的2只和分数最低的2只
         if context.index_df.iloc[-1]['diff'] > 0:
 
             buy_stock_list.append(context.stock_list[0])
             buy_stock_list.append(context.stock_list[1])
-            buy_stock_list.append(context.stock_list[stock_list_count - 1])
-            buy_stock_list.append(context.stock_list[stock_list_count - 2])
+            buy_stock_list.append(context.stock_list[2])
+            buy_stock_list.append(context.stock_list[3])
+            #buy_stock_list.append(context.stock_list[stock_list_count - 1])
+            #buy_stock_list.append(context.stock_list[stock_list_count - 2])
 
         #当指数diff小于0，买入分数最低的4只
         if context.index_df.iloc[-1]['diff'] < 0:
@@ -238,16 +267,17 @@ class Buy_stocks_position(Adjust_position):
             buy_stock_list.append(context.stock_list[1])
             buy_stock_list.append(context.stock_list[2])
             buy_stock_list.append(context.stock_list[3])
+        '''
 
-        for stock in buy_stock_list:
+        for stock in context.stock_list:
 
             if stock in context.black_list:
                 return
             
             createdic(context, data, stock)
-            if context.portfolio.positions[stock].value_percent * 1.05 < ((context.position - actual_position)/self.buy_count):
-                self.open_position_by_percent(stock, ((context.position - actual_position)/self.buy_count))
-                print('[Score 补仓买入]', instruments(stock).symbol, ((context.position - actual_position)/self.buy_count))
+            if context.portfolio.positions[stock].value_percent * 1.05 < (0.5/self.buy_count):
+                self.open_position_by_percent(stock, (0.5/self.buy_count))
+                print('[Score 补仓买入]', instruments(stock).symbol, (0.5/self.buy_count))
 
         pass
     def __str__(self):
@@ -287,8 +317,8 @@ class Buy_stocks_low(Adjust_position):
             macd_df_30 = context.bar_30[stock]
             macd_df_15 = context.bar_15[stock]
 
-            if (context.portfolio.market_value / context.portfolio.portfolio_value) > context.position:
-                return
+            #if (context.portfolio.market_value / context.portfolio.portfolio_value) > context.position:
+            #    return
                 
             #构成买入条件
             if macd_df_60.iloc[-1]['bottom_buy'] == 1:
@@ -298,7 +328,7 @@ class Buy_stocks_low(Adjust_position):
                 if context.portfolio.positions[stock].value_percent * 1.1 < context.position/self.buy_count:
                     self.open_position_by_percent(stock, context.position/self.buy_count)
 
-                    if stock not in context.stock_60.keys:
+                    if stock not in context.stock_60:
                         context.stock_60.append(stock)
 
                     print('[60分钟 底部结构买入]', instruments(stock).symbol, context.position/self.buy_count)
@@ -307,12 +337,11 @@ class Buy_stocks_low(Adjust_position):
 
                 createdic(context, data, stock)
                     
-                if context.portfolio.positions[stock].value_percent * 1.1 < (context.position/self.buy_count)*0.75:
-                    self.open_position_by_percent(stock, (context.position/self.buy_count)*0.75 )
+                if context.portfolio.positions[stock].value_percent * 1.1 < (context.position/self.buy_count):
+                    self.open_position_by_percent(stock, context.position/self.buy_count) 
 
-                    if stock not in context.stock_30.keys:
+                    if stock not in context.stock_30:
                         context.stock_30.append(stock)
-
 
                     print('[30分钟 底部结构买入]', instruments(stock).symbol, context.position/self.buy_count)
 
@@ -320,10 +349,10 @@ class Buy_stocks_low(Adjust_position):
 
                 createdic(context, data, stock)
                     
-                if context.portfolio.positions[stock].value_percent * 1.1 < (context.position/self.buy_count)*0.5:
-                    self.open_position_by_percent(stock, (context.position/self.buy_count)*0.5 )
+                if context.portfolio.positions[stock].value_percent * 1.1 < (context.position/self.buy_count):
+                    self.open_position_by_percent(stock, context.position/self.buy_count)
 
-                    if stock not in context.stock_30.keys:
+                    if stock not in context.stock_15:
                         context.stock_30.append(stock)
 
                     print('[15分钟 底部结构买入]', instruments(stock).symbol, context.position/self.buy_count)
