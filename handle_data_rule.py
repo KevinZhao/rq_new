@@ -27,21 +27,20 @@ class Handle_data_df(Handle_data_rule):
         context.bar_30 = {}
         context.bar_60 = {}
 
-        #补全数据
-        #选股池列表
         for stock in context.stock_list:
             #初始化30分钟线数据
-            context.bar_30[stock] = get_price(stock, start_date = today - datetime.timedelta(days = 70), end_date = today - datetime.timedelta(days = 1), frequency = '30m').tail(150)
-            context.bar_60[stock] = get_price(stock, start_date = today - datetime.timedelta(days = 150), end_date = today - datetime.timedelta(days = 1), frequency = '60m').tail(150)
-            context.bar_15[stock] = get_price(stock, start_date = today - datetime.timedelta(days = 40), end_date = today - datetime.timedelta(days = 1), frequency = '15m').tail(150)
+            context.bar_30[stock] = pd.DataFrame(history_bars(stock, 150, frequency = '30m'), index = None)
+            context.bar_60[stock] = pd.DataFrame(history_bars(stock, 150, frequency = '60m'), index = None)
+            context.bar_15[stock] = pd.DataFrame(history_bars(stock, 150, frequency = '15m'), index = None)
+
         #持仓列表
         for stock in context.portfolio.positions.keys():
             #且不在选股池列表中
             if stock not in context.stock_list:
                 #初始化30分钟线数据
-                context.bar_30[stock] = get_price(stock, start_date = today - datetime.timedelta(days = 70), end_date = today - datetime.timedelta(days = 1), frequency = '30m').tail(150)
-                context.bar_60[stock] = get_price(stock, start_date = today - datetime.timedelta(days = 150), end_date = today - datetime.timedelta(days = 1), frequency = '60m').tail(150)
-                context.bar_15[stock] = get_price(stock, start_date = today - datetime.timedelta(days = 40), end_date = today - datetime.timedelta(days = 1), frequency = '15m').tail(150)
+                context.bar_30[stock] = pd.DataFrame(history_bars(stock, 150, frequency = '30m'), index = None)
+                context.bar_60[stock] = pd.DataFrame(history_bars(stock, 150, frequency = '60m'), index = None)
+                context.bar_15[stock] = pd.DataFrame(history_bars(stock, 150, frequency = '15m'), index = None)
 
         #-------------------------------------------#
         #计算数据
@@ -106,7 +105,7 @@ class Handle_data_df(Handle_data_rule):
         #选股评分
         if context.timedelt % 60 == 0:
 
-            stock_score(context)
+            stock_score(context, data)
 
 
         '''

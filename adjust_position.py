@@ -3,6 +3,7 @@
 #from kuanke.user_space_api import *
 from rule import *
 from util import *
+import pandas
 
 
 '''==============================个股止盈止损规则=============================='''
@@ -81,37 +82,45 @@ class Stop_loss_stocks_by_ATR(Rule):
     # 个股止损
     def handle_data(self, context, data):
 
+        #if context.timedelt % 60 == 0:
+        #    print(context.ATRList)
+
         for stock in context.ATRList:
 
             if stock in context.portfolio.positions.keys() and context.portfolio.positions[stock].quantity > 0: 
 
+                stockdic = context.maxvalue[stock]
+                highest = stockdic[0]
+
                 #当前涨幅判断
-                raisePercentage = (data[stock].close - context.portfolio.positions[stock].avg_price)/context.portfolio.positions[stock].avg_price
+                raisePercentage = (highest - context.portfolio.positions[stock].avg_price) /context.portfolio.positions[stock].avg_price
+                #print(highest, raisePercentage)
 
-                if raisePercentage > 0.12:
+                if  raisePercentage > 0.18:
 
-                    print(context.bar_60[stock])
                     bar = context.bar_60
+                    minute = '60分钟'
 
-                else:
-                    if raisePercentage > 0.8:
+                if  (raisePercentage > 0.12) and (raisePercentage <= 0.18):
 
-                        bar = context.bar_30
+                    bar = context.bar_30
+                    minute = '30分钟'
 
-                    else:
-                        if raisePercentage > 0.4:
+                if  (raisePercentage >= 0.06) and (raisePercentage <= 0.12):
 
-                            bar = context.bar_15
+                    bar = context.bar_15
+                    minute = '15分钟'
 
-                        else:
-                            return
+                if (raisePercentage < 0.06):
+                    return
+
 
                 ATR = findATR(context, bar, stock)
 
+                #print(stock, minute, ATR, ATR/context.portfolio.positions[stock].avg_price)
+
                 high = bar[stock].iloc[-1]['high']
                 current = bar[stock].iloc[-1]['close']
-                stockdic = context.maxvalue[stock]
-                highest = stockdic[0]
 
                 del context.maxvalue[stock]        
                 temp = pd.DataFrame({str(stock):[max(highest,high)]})
@@ -123,7 +132,7 @@ class Stop_loss_stocks_by_ATR(Rule):
         
                 if data[stock].close < highest - 3*ATR:
                 
-                    print('[ATR止损卖出]', instruments(stock).symbol, context.portfolio.positions[stock].avg_price, highest, data[stock].last, ATR)
+                    print(minute, '[ATR止损卖出]', instruments(stock).symbol, context.portfolio.positions[stock].avg_price, highest, data[stock].last, ATR)
                     position = context.portfolio.positions[stock]
                     self.close_position(position)
                     context.black_list.append(stock)
@@ -170,16 +179,16 @@ class Sell_stocks(Adjust_position):
             if context.portfolio.positions[stock].sellable == 0:
                 return
 
-            if data[stock].close < context.portfolio.positions[stock].avg_price * 1.04:
+            #if data[stock].close < context.portfolio.positions[stock].avg_price * 1.04:
 
                 #止损
-                if data[stock].close < context.portfolio.positions[stock].avg_price * 0.92:
-                    position = context.portfolio.positions[stock]
-                    self.close_position(position)
-                    context.black_list.append(stock)
+                #if data[stock].close < context.portfolio.positions[stock].avg_price * 0.92:
+                    #position = context.portfolio.positions[stock]
+                    #self.close_position(position)
+                    #context.black_list.append(stock)
 
-            else:
-                if stock not in context.ATRList: #and data[stock].close > context.portfolio.positions[stock].avg_price * 1.04:
+            if (context.maxvalue[stock][0] - context.portfolio.positions[stock].avg_price)/context.portfolio.positions[stock].avg_price > 0.04:
+                if stock not in context.ATRList: 
                     context.ATRList.append(stock)
                     
             if stock in context.stock_60:
@@ -189,7 +198,7 @@ class Sell_stocks(Adjust_position):
                     percentage = context.portfolio.positions[stock].value_percent
 
                     print(stock, instruments(stock).symbol, data[stock].close, '60分钟 7%止盈卖出')
-                    close_position_2(positions, percentage/2)
+                    close_position_2(positions, percentage)
                     context.black_list.append(stock)
                     context.stock_60.remove(stock)
 
@@ -200,7 +209,7 @@ class Sell_stocks(Adjust_position):
                     percentage = context.portfolio.positions[stock].value_percent
 
                     print(stock, instruments(stock).symbol, data[stock].close, '30分钟 4%止盈卖出')
-                    close_position_2(positions, percentage/2)
+                    close_position_2(positions, percentage)
                     context.black_list.append(stock)
                     context.stock_30.remove(stock)
 
@@ -211,7 +220,7 @@ class Sell_stocks(Adjust_position):
                     percentage = context.portfolio.positions[stock].value_percent
 
                     print(stock, instruments(stock).symbol, data[stock].close, '15分钟 2.5%止盈卖出')
-                    close_position_2(positions, percentage/2)
+                    close_position_2(positions, percentage)
                     context.black_list.append(stock)
                     context.stock_15.remove(stock)
 
@@ -229,16 +238,10 @@ class Buy_stocks_position(Adjust_position):
         self.buy_count = params.get('buy_count',self.buy_count)
     def adjust(self,context,data,buy_stocks):
 
-        # 买入股票 交易时间为下午2点
-        if (context.timedelt != 230):
-            return
-
-        if context.index_df.iloc[-1]['macd'] < 0:
-            return
 
         actual_position = context.portfolio.market_value / context.portfolio.portfolio_value
 
-        if actual_position > context.position * 0.95:
+        if actual_position > context.position * 0.98:
             return
 
         #避免小额下单
@@ -249,35 +252,22 @@ class Buy_stocks_position(Adjust_position):
 
         stock_list_count = len(context.stock_list)
 
-        '''
-        #当指数diff大于0，买入分数最高的2只和分数最低的2只
-        if context.index_df.iloc[-1]['diff'] > 0:
-
-            buy_stock_list.append(context.stock_list[0])
-            buy_stock_list.append(context.stock_list[1])
-            buy_stock_list.append(context.stock_list[2])
-            buy_stock_list.append(context.stock_list[3])
-            #buy_stock_list.append(context.stock_list[stock_list_count - 1])
-            #buy_stock_list.append(context.stock_list[stock_list_count - 2])
-
-        #当指数diff小于0，买入分数最低的4只
-        if context.index_df.iloc[-1]['diff'] < 0:
-
-            buy_stock_list.append(context.stock_list[0])
-            buy_stock_list.append(context.stock_list[1])
-            buy_stock_list.append(context.stock_list[2])
-            buy_stock_list.append(context.stock_list[3])
-        '''
-
         for stock in context.stock_list:
 
             if stock in context.black_list:
                 return
-            
-            createdic(context, data, stock)
-            if context.portfolio.positions[stock].value_percent * 1.05 < (0.5/self.buy_count):
-                self.open_position_by_percent(stock, (0.5/self.buy_count))
-                print('[Score 补仓买入]', instruments(stock).symbol, (0.5/self.buy_count))
+
+            #todo：盘前计算
+            fiveday_avg = calc_5day(stock, data).tolist()
+            fiveday_avg.reverse();
+
+            if fiveday_avg[0]/fiveday_avg[1] > 0.99:
+                if data[stock].close > fiveday_avg[0]:
+
+                    createdic(context, data, stock)
+                    if context.portfolio.positions[stock].value_percent * 1.05 < (context.position/self.buy_count):
+                        self.open_position_by_percent(stock, (context.position/self.buy_count))
+                        print('[Score 补仓买入]', instruments(stock).symbol, (context.position/self.buy_count), data[stock].close)
 
         pass
     def __str__(self):

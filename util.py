@@ -315,9 +315,9 @@ def calculate_macd_index(df):
 
     return df
 
-def stock_score(context):
+def stock_score(context, data = None):
 
-    context.result_df = pd.DataFrame(columns = {'stock', 'score', 'instruments', 'circulation_a', 'days_from_listed'})
+    context.result_df = pd.DataFrame(columns = {'stock', 'score', 'instruments', 'circulation_a', 'days_from_listed', '5day_avg'})
 
     for stock in context.stock_list:
 
@@ -344,12 +344,16 @@ def stock_score(context):
         score_list.reverse()
         score_df['score'] = pd.DataFrame(score_list, index = score_df.index, columns = ['score'])
 
+        fiveday_avg = calc_5day(stock, data).tolist()
+        fiveday_avg.reverse();
+
         temp_data = pd.DataFrame(
             {"score":score_df.iloc[-1]['score'],
             "stock":stock,
             "instruments":instruments(stock).symbol,
             "circulation_a":get_shares(stock, count =1, fields = 'circulation_a')[0] * context.bar_60[stock].iloc[-1]['close']/10000,
-            "days_from_listed":instruments(stock).days_from_listed()
+            "days_from_listed":instruments(stock).days_from_listed(),
+            "5day_avg": fiveday_avg[0]
             }, index = ["0"])
 
         context.result_df = context.result_df.append(temp_data, ignore_index= True)
@@ -357,7 +361,7 @@ def stock_score(context):
 
     context.result_df = context.result_df.sort(columns='circulation_a', ascending=True)
 
-    context.result_df['30_bottom_alert'] = pd.DataFrame(None, index = context.result_df.index, columns = ['30_bottom_alert'])
+    #context.result_df['5day_avg'] = pd.DataFrame(None, index = context.result_df.index, columns = ['5day_avg'])
     #for row in result_df.iterrows():
         #row[stock] = 
 
@@ -412,3 +416,17 @@ def createdic(context, data, stock):
     if stock not in context.maxvalue.columns:
         temp = pd.DataFrame({str(stock):[0]})    
         context.maxvalue = pd.concat([context.maxvalue, temp], axis=1, join='inner')
+
+def calc_5day(stock, data = None):
+
+    if data == None:
+        result = talib.MA(history_bars(stock, 10, '1d', fields='close', skip_suspended=True, include_now = False), timeperiod = 5)
+
+    else:
+        history = history_bars(stock, 10, '1d', fields='close', skip_suspended=True, include_now = False)
+
+        history = np.append(history, data[stock].close)
+
+        result = talib.MA(history, timeperiod = 5)
+
+    return result
