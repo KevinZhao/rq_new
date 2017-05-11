@@ -423,10 +423,13 @@ def calc_5day(stock, data = None):
         result = talib.MA(history_bars(stock, 10, '1d', fields='close', skip_suspended=True, include_now = False), timeperiod = 5)
 
     else:
+        
         history = history_bars(stock, 10, '1d', fields='close', skip_suspended=True, include_now = False)
 
         history = np.append(history, data[stock].close)
 
         result = talib.MA(history, timeperiod = 5)
+        
 
+        #result = talib.MA(history_bars(stock, 10, '1d', fields='close', skip_suspended=True, include_now = False), timeperiod = 5)
     return result

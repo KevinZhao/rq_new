@@ -129,7 +129,7 @@ class Handle_data_df(Handle_data_rule):
             if context.index_df_30.iloc[-1]['bottom_buy'] == 1:
                 print("399678指数 30分钟结构")
         '''
-
+        '''
         if context.timedelt == 225:
 
             temp_data = pd.DataFrame(
@@ -137,8 +137,9 @@ class Handle_data_df(Handle_data_rule):
                 "open":"",
                 "high":"",
                 "volume":"",
-                "close":current_snapshot('399678.XSHE').last,
+                "close":current_snapshot('399001.XSHE').last,
                 "total_turnover":""}, index = ["0"])
+        '''
 
             #context.index_df = context.index_df.append(temp_data, ignore_index = True)
             #context.index_df = macd_alert_calculation(context.index_df)

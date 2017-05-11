@@ -334,7 +334,7 @@ class Index_MACD_condition(Adjust_condition):
         if context.index_df.iloc[-1]['macd'] > 0:
             context.position = 1
         else:
-            context.position = 0.25
+            context.position = 0.05
 
         if context.index_df.iloc[-1]['diff'] < 0 and context.index_df.iloc[-2]['diff']< 0:
             if context.index_df.iloc[-1]['diff'] < context.index_df.iloc[-2]['diff'] and (context.index_df.iloc[-1]['diff']/context.index_df.iloc[-2]['diff']) < 1.04:
