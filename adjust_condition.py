@@ -328,20 +328,74 @@ class Index_MACD_condition(Adjust_condition):
 
     def handle_data(self,context, data):
 
-        context.position = 0
+        if context.timedelt % 60 != 1:
+            return
 
-        #日线
-        if context.index_df.iloc[-1]['macd'] > 0:
-            context.position = 1
-        else:
-            context.position = 0.05
+        #金叉
+        if context.index_df.iloc[-1]['macd'] > 0 and context.index_df.iloc[-2]['macd'] < 0:
+            context.position = 0.8
+        #死叉
+        if context.index_df.iloc[-1]['macd'] < 0 and context.index_df.iloc[-2]['macd'] > 0:
+            context.position = 0
 
-        if context.index_df.iloc[-1]['diff'] < 0 and context.index_df.iloc[-2]['diff']< 0:
-            if context.index_df.iloc[-1]['diff'] < context.index_df.iloc[-2]['diff'] and (context.index_df.iloc[-1]['diff']/context.index_df.iloc[-2]['diff']) < 1.04:
+        #低位 金叉之前
+        if context.index_df.iloc[-1]['diff'] < 0 and context.index_df.iloc[-2]['diff']< 0 and context.index_df.iloc[-1]['macd'] < 0:
+            #diff上拐
+            if context.index_df.iloc[-1]['diff'] > context.index_df.iloc[-2]['diff'] and (context.index_df.iloc[-1]['diff']/context.index_df.iloc[-2]['diff']) < 1.005:
+                #macd绿脚线缩短
                 if context.index_df.iloc[-1]['macd'] > context.index_df.iloc[-2]['macd']:
-                    context.position = 0.5
-                    pass
-                pass
+                    context.position = 0.4
+
+            #diff下拐
+            if context.index_df.iloc[-1]['diff'] < context.index_df.iloc[-2]['diff'] and (context.index_df.iloc[-1]['diff']/context.index_df.iloc[-2]['diff']) > 1.005:
+                #macd绿脚线加长
+                if context.index_df.iloc[-1]['macd'] < context.index_df.iloc[-2]['macd']:
+                    context.position = 0
+
+        #低位 金叉之后
+        if context.index_df.iloc[-1]['diff'] < 0 and context.index_df.iloc[-2]['diff']< 0 and context.index_df.iloc[-1]['macd'] > 0:
+            #diff上拐
+            if context.index_df.iloc[-1]['diff'] > context.index_df.iloc[-2]['diff'] and (context.index_df.iloc[-1]['diff']/context.index_df.iloc[-2]['diff']) < 1.005:
+                #macd绿脚线缩短
+                if context.index_df.iloc[-1]['macd'] > context.index_df.iloc[-2]['macd']:
+                    context.position = 1.0
+
+            #diff下拐
+            if context.index_df.iloc[-1]['diff'] < context.index_df.iloc[-2]['diff'] and (context.index_df.iloc[-1]['diff']/context.index_df.iloc[-2]['diff']) > 1.005:
+                #macd绿脚线加长
+                if context.index_df.iloc[-1]['macd'] < context.index_df.iloc[-2]['macd']:
+                    context.position = 0.6
+
+
+        #高位 死叉之前
+        if context.index_df.iloc[-1]['diff'] > 0 and context.index_df.iloc[-2]['diff'] > 0 and context.index_df.iloc[-1]['macd'] > 0:
+            #diff下拐
+            if context.index_df.iloc[-1]['diff'] < context.index_df.iloc[-2]['diff'] and (context.index_df.iloc[-1]['diff']/context.index_df.iloc[-2]['diff']) < 0.995:
+                #macd红脚线缩短
+                if context.index_df.iloc[-1]['macd'] < context.index_df.iloc[-2]['macd']:
+                    context.position = 0.6
+
+            #diff上拐
+            if context.index_df.iloc[-1]['diff'] > context.index_df.iloc[-2]['diff'] and (context.index_df.iloc[-1]['diff']/context.index_df.iloc[-2]['diff']) > 1.005:
+                #macd红脚线加长
+                if context.index_df.iloc[-1]['macd'] > context.index_df.iloc[-2]['macd']:
+                    context.position = 1
+
+        #高位 死叉之后
+        if context.index_df.iloc[-1]['diff'] > 0 and context.index_df.iloc[-2]['diff'] > 0 and context.index_df.iloc[-1]['macd'] < 0:
+            #diff下拐
+            if context.index_df.iloc[-1]['diff'] < context.index_df.iloc[-2]['diff'] and (context.index_df.iloc[-1]['diff']/context.index_df.iloc[-2]['diff']) < 0.995:
+                #macd红脚线缩短
+                if context.index_df.iloc[-1]['macd'] < context.index_df.iloc[-2]['macd']:
+                    context.position = 0
+
+            #diff上拐
+            if context.index_df.iloc[-1]['diff'] > context.index_df.iloc[-2]['diff'] and (context.index_df.iloc[-1]['diff']/context.index_df.iloc[-2]['diff']) > 1.005:
+                #macd红脚线加长
+                if context.index_df.iloc[-1]['macd'] > context.index_df.iloc[-2]['macd']:
+                    context.position = 0.4
+
+
 
         if context.position > 0:
             self.t_can_adjust = True

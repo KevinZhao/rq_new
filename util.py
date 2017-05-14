@@ -423,13 +423,81 @@ def calc_5day(stock, data = None):
         result = talib.MA(history_bars(stock, 10, '1d', fields='close', skip_suspended=True, include_now = False), timeperiod = 5)
 
     else:
-        
+        '''
         history = history_bars(stock, 10, '1d', fields='close', skip_suspended=True, include_now = False)
 
         history = np.append(history, data[stock].close)
 
         result = talib.MA(history, timeperiod = 5)
-        
+        '''
 
-        #result = talib.MA(history_bars(stock, 10, '1d', fields='close', skip_suspended=True, include_now = False), timeperiod = 5)
+        result = talib.MA(history_bars(stock, 10, '1d', fields='close', skip_suspended=True, include_now = False), timeperiod = 5)
+    return result
+
+def calc_5day_120(stock, data = None):
+
+    if data == None:
+        result = talib.MA(history_bars(stock, 10, '120m', fields='close', skip_suspended=True, include_now = False), timeperiod = 5)
+
+    else:
+        '''
+        history = history_bars(stock, 10, '1d', fields='close', skip_suspended=True, include_now = False)
+
+        history = np.append(history, data[stock].close)
+
+        result = talib.MA(history, timeperiod = 5)
+        '''
+
+        result = talib.MA(history_bars(stock, 10, '120m', fields='close', skip_suspended=True, include_now = False), timeperiod = 5)
+    return result
+
+def calc_10day_120(stock, data = None):
+
+    if data == None:
+        result = talib.MA(history_bars(stock, 10, '120m', fields='close', skip_suspended=True, include_now = False), timeperiod = 10)
+
+    else:
+        '''
+        history = history_bars(stock, 10, '1d', fields='close', skip_suspended=True, include_now = False)
+
+        history = np.append(history, data[stock].close)
+
+        result = talib.MA(history, timeperiod = 5)
+        '''
+
+        result = talib.MA(history_bars(stock, 10, '120m', fields='close', skip_suspended=True, include_now = False), timeperiod = 10)
+    return result
+
+def calc_5day_60(stock, data = None):
+
+    if data == None:
+        result = talib.MA(history_bars(stock, 10, '60m', fields='close', skip_suspended=True, include_now = False), timeperiod = 5)
+
+    else:
+        '''
+        history = history_bars(stock, 10, '1d', fields='close', skip_suspended=True, include_now = False)
+
+        history = np.append(history, data[stock].close)
+
+        result = talib.MA(history, timeperiod = 5)
+        '''
+
+        result = talib.MA(history_bars(stock, 10, '60m', fields='close', skip_suspended=True, include_now = False), timeperiod = 5)
+    return result
+
+def calc_10day_60(stock, data = None):
+
+    if data == None:
+        result = talib.MA(history_bars(stock, 20, '60m', fields='close', skip_suspended=True, include_now = False), timeperiod = 10)
+
+    else:
+        '''
+        history = history_bars(stock, 10, '1d', fields='close', skip_suspended=True, include_now = False)
+
+        history = np.append(history, data[stock].close)
+
+        result = talib.MA(history, timeperiod = 5)
+        '''
+
+        result = talib.MA(history_bars(stock, 20, '60m', fields='close', skip_suspended=True, include_now = False), timeperiod = 10)
     return result
