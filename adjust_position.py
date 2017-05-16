@@ -13,16 +13,19 @@ class Stop_loss_stocks_by_percentage(Rule):
     __name__='Stop_loss_stocks_by_percentage'
 
     def __init__(self,params):
-        self.percent = params.get('percent', 0.08)
+        self.percent = params.get('percentage', 0.08)
 
     def update_params(self,context,params):
-        self.percent = params.get('percent', self.period)
+        self.percent = params.get('percentage', self.percentage)
         
     # 个股止损
     def handle_data(self,context, data):
 
         #持仓股票循环
         for stock in context.portfolio.positions.keys():
+
+            #if stock in context.ATRList:
+                #return
 
             #持有数量超过0
             if context.portfolio.positions[stock].quantity > 0:
@@ -54,8 +57,6 @@ class Stop_loss_stocks_by_percentage(Rule):
                 if stock in context.ATRList:
                     context.ATRList.remove(stock)
 
-                #if stock in context.maxvalue.keys:
-                    #del context.maxvalue[stock]
 
     def when_sell_stock(self,position,order,is_normal):
         #if position.security in self.last_high:
@@ -173,12 +174,12 @@ class Sell_stocks(Adjust_position):
                 return
 
                 #止损
-            if data[stock].close < context.portfolio.positions[stock].avg_price * 0.95:
+            if data[stock].close < context.portfolio.positions[stock].avg_price * 0.94:
                 position = context.portfolio.positions[stock]
                 self.close_position(position)
                 context.black_list.append(stock)
 
-            if (context.maxvalue[stock][0] - context.portfolio.positions[stock].avg_price)/context.portfolio.positions[stock].avg_price > 0.04:
+            if (context.maxvalue[stock][0] - context.portfolio.positions[stock].avg_price)/context.portfolio.positions[stock].avg_price > 0.06:
                 if stock not in context.ATRList: 
                     context.ATRList.append(stock)
                     
@@ -231,7 +232,7 @@ class Buy_stocks_position(Adjust_position):
 
         actual_position = context.portfolio.market_value / context.portfolio.portfolio_value
 
-        if actual_position > context.position * 0.98:
+        if actual_position > context.position * 0.99:
             return
 
         #避免小额下单
@@ -247,11 +248,15 @@ class Buy_stocks_position(Adjust_position):
             if stock in context.black_list:
                 return
 
-            fiveday_avg = calc_5day(stock, data).tolist()
+            fiveday_avg = calc_avg(stock, 5, '1d').tolist()
             fiveday_avg.reverse();
 
-            if fiveday_avg[0]/fiveday_avg[1] > 0.99:
-                if data[stock].close > fiveday_avg[0]:
+            if fiveday_avg[0]/fiveday_avg[1] > 0.99 :
+                #超过5日线，且涨幅小于5%
+
+                last_close = history_bars(stock, 1, '1d', fields = 'close', include_now = False)
+
+                if data[stock].close > fiveday_avg[0] and ((data[stock].close - last_close)/last_close) < 1.05:
 
                     createdic(context, data, stock)
 
@@ -275,14 +280,17 @@ class Buy_stocks_position(Adjust_position):
             if stock in context.black_list:
                 return
 
-            fiveday_avg = calc_5day_120(stock, data).tolist()
+            fiveday_avg = calc_avg(stock, 5, '120m').tolist()
             fiveday_avg.reverse();
 
-            tendday_avg = calc_10day_120(stock, data).tolist()
+            tendday_avg = calc_avg(stock, 10, '120m').tolist()
             tendday_avg.reverse();
 
             if fiveday_avg[0]/fiveday_avg[1] > 0.99 and fiveday_avg[0] > tendday_avg[0]:
-                if data[stock].close > fiveday_avg[0]:
+                
+                last_close = history_bars(stock, 1, '1d', fields = 'close', include_now = False)
+
+                if data[stock].close > fiveday_avg[0] and ((data[stock].close - last_close)/last_close) < 1.05:
 
                     createdic(context, data, stock)
                     if context.portfolio.positions[stock].value_percent * 1.05 < (context.position/self.buy_count):
@@ -299,14 +307,16 @@ class Buy_stocks_position(Adjust_position):
             if stock in context.black_list:
                 return
 
-            fiveday_avg = calc_5day_60(stock, data).tolist()
+            fiveday_avg = calc_avg(stock, 5, '60m').tolist()
             fiveday_avg.reverse();
 
-            tendday_avg = calc_10day_60(stock, data).tolist()
+            tendday_avg = calc_avg(stock, 10, '60m').tolist()
             tendday_avg.reverse();
 
             if fiveday_avg[0]/fiveday_avg[1] > 0.99 and fiveday_avg[0] > tendday_avg[0]:
-                if data[stock].close > fiveday_avg[0]:
+               
+                last_close = history_bars(stock, 1, '1d', fields = 'close', include_now = False)
+                if data[stock].close > fiveday_avg[0] and ((data[stock].close - last_close)/last_close) < 1.05:
 
                     createdic(context, data, stock)
                     if context.portfolio.positions[stock].value_percent * 1.05 < (context.position/self.buy_count):
@@ -403,54 +413,6 @@ class Buy_stocks_low(Adjust_position):
     def __str__(self):
         return '股票调仓买入规则：现金平分式买入股票达目标股票数'
 
-class Buy_stocks_5day(Adjust_position):
-    __name__='Buy_stocks_5day'
-    def __init__(self,params):
-        self.buy_count = params.get('buy_count',4)
-        #self.buy_position = params.get('buy_position', 0)
-    def update_params(self,context,params):
-        self.buy_count = params.get('buy_count',self.buy_count)
-        #self.buy_position = params.get('buy_position', self.buy_position)
-    def adjust(self,context,data,buy_stocks):
-        
-        if context.timedelt % 30 != 0:
-            return
-
-        actual_position = context.portfolio.market_value / context.portfolio.portfolio_value
-
-        if actual_position > context.position * 0.98:
-            return
-
-        #避免小额下单
-        if context.portfolio.cash < 10000:
-            return
-
-        buy_stock_list = []
-
-        stock_list_count = len(context.stock_list)
-
-        for stock in context.stock_list:
-
-            #todo：盘前计算
-            fiveday_avg = calc_5day(stock, data).tolist()
-            fiveday_avg.reverse();
-
-            if data[stock].close > fiveday_avg[0]:
-
-                buy_stock_list.append(stock)
-
-        if len(buy_stock_list) / stock_list_count > 0.6:
-
-            for stock in buy_stock_list:
-
-                createdic(context, data, stock)
-                if context.portfolio.positions[stock].value_percent * 1.05 < (context.position/self.buy_count):
-                    self.open_position_by_percent(stock, (context.position/self.buy_count))
-                    print('[五日线 补仓买入]', instruments(stock).symbol, (context.position/self.buy_count), data[stock].close)
-
-        pass
-    def __str__(self):
-        return '股票调仓买入规则：现金平分式买入股票达目标股票数'
 
 def generate_portion(num):
     total_portion = num * (num+1) / 2
